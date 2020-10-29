@@ -9,7 +9,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.Set;
 
 public class HyParView extends GenericProtocol {
 
@@ -19,6 +21,11 @@ public class HyParView extends GenericProtocol {
     public static final short PROTOCOL_ID = 101;
     public static final String PROTOCOL_NAME = "HyParView";
 
+    private final Set<Host> pending; //Peers I am trying to connect to
+
+    private final Set<Host> activeView;
+    private final Set<Host> passiveView;
+
     private final Host self; //My own address/port
 
     private final int channelId; //Id of the created channel
@@ -26,7 +33,14 @@ public class HyParView extends GenericProtocol {
     public HyParView(Properties props, Host self) throws IOException {
         super(PROTOCOL_NAME, PROTOCOL_ID);
 
+        //TODO: are these needed?
+        //int fanout =  Integer.parseInt(props.getProperty("hpv_fanout", "6"));
+        //int network_size = Integer.parseInt(props.getProperty("hpv_network_size", "10"));
+
         this.self = self;
+        this.activeView = new HashSet<>();
+        this.passiveView = new HashSet<>();
+        this.pending = new HashSet<>();
 
         //Load properties
         String cMetricsInterval = props.getProperty("channel_metrics_interval", "10000"); //10 seconds
@@ -35,7 +49,7 @@ public class HyParView extends GenericProtocol {
         Properties channelProps = new Properties();
         channelProps.setProperty(TCPChannel.ADDRESS_KEY, props.getProperty("address")); //The address to bind to
         channelProps.setProperty(TCPChannel.PORT_KEY, props.getProperty("port")); //The port to bind to
-        channelProps.setProperty(TCPChannel.METRICS_INTERVAL_KEY, cMetricsInterval); //The interval to receive channel metrics
+        //channelProps.setProperty(TCPChannel.METRICS_INTERVAL_KEY, cMetricsInterval); //The interval to receive channel metrics
         channelProps.setProperty(TCPChannel.HEARTBEAT_INTERVAL_KEY, "1000"); //Heartbeats interval for established connections
         channelProps.setProperty(TCPChannel.HEARTBEAT_TOLERANCE_KEY, "3000"); //Time passed without heartbeats until closing a connection
         channelProps.setProperty(TCPChannel.CONNECT_TIMEOUT_KEY, "1000"); //TCP connect timeout
@@ -62,29 +76,5 @@ public class HyParView extends GenericProtocol {
     /* --------------------------------- TCPChannel Events ------------------------- */
 
     /* --------------------------------- Metrics ----------------------------------- */
-
-    //If we passed a value > 0 in the METRICS_INTERVAL_KEY property of the channel, this event will be triggered
-    //periodically by the channel. This is NOT a protocol timer, but a channel event.
-    //Again, we are just showing some of the information you can get from the channel, and use how you see fit.
-    //"getInConnections" and "getOutConnections" returns the currently established connection to/from me.
-    //"getOldInConnections" and "getOldOutConnections" returns connections that have already been closed.
-    private void uponChannelMetrics(ChannelMetrics event, int channelId) {
-        StringBuilder sb = new StringBuilder("Channel Metrics:\n");
-        sb.append("In channels:\n");
-        event.getInConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        event.getOldInConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s) (old)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        sb.append("Out channels:\n");
-        event.getOutConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        event.getOldOutConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s) (old)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        sb.setLength(sb.length() - 1);
-        logger.info(sb);
-    }
+    
 }
