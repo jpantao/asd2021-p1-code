@@ -1,19 +1,21 @@
 package protocols.membership.hyparview.messages;
 
+import babel.generic.ProtoMessage;
 import io.netty.buffer.ByteBuf;
 import network.ISerializer;
 import network.data.Host;
 
 import java.io.IOException;
 
-public class ForwardJoinMessage {
+public class ForwardJoinMessage extends ProtoMessage {
 
-    public final static short MSG_ID = 112;
+    public final static short MSG_ID = 113;
 
     private final Host newNode;
     private final int ttl;
 
     public ForwardJoinMessage(Host newNode, int ttl) {
+        super(MSG_ID);
         this.newNode = newNode;
         this.ttl = ttl;
     }
