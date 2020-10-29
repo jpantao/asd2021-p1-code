@@ -18,7 +18,7 @@ public class HyParView extends GenericProtocol {
     private static final Logger logger = LogManager.getLogger(HyParView.class);
 
     //Protocol information, to register in babel
-    public static final short PROTOCOL_ID = 101;
+    public static final short PROTOCOL_ID = 110;
     public static final String PROTOCOL_NAME = "HyParView";
 
     private final Set<Host> pending; //Peers I am trying to connect to
@@ -65,7 +65,8 @@ public class HyParView extends GenericProtocol {
     }
 
     @Override
-    public void init(Properties properties) throws HandlerRegistrationException, IOException {
+    public void init(Properties properties) {
+
 
     }
 
