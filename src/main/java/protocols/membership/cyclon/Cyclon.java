@@ -9,9 +9,13 @@ import channel.tcp.events.*;
 import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import protocols.membership.common.notifications.ChannelCreated;
+import protocols.membership.common.notifications.NeighbourDown;
+import protocols.membership.common.notifications.NeighbourUp;
 import protocols.membership.cyclon.timers.*;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.*;
 
 public class Cyclon extends GenericProtocol {
@@ -24,9 +28,8 @@ public class Cyclon extends GenericProtocol {
 
     private final Host self; //Process address/port
     private final Set<Host> neighbours; //Set of neighbours
+    private final Set<Host> pending; //Set of pending connections
     private final Set<Host> sample; //Subset of neighbours sent in previous shuffle
-
-    private final Set<Host> pending;
 
     //Configurable Parameters
     private final int N; //Maximum number of neighbours
@@ -45,19 +48,20 @@ public class Cyclon extends GenericProtocol {
      */
     public Cyclon(Properties props, Host self) throws IOException, HandlerRegistrationException {
         super(PROTOCOL_NAME, PROTOCOL_ID);
-        this.N = Integer.parseInt(props.getProperty("neigh_size", "6"));
-        this.n = Integer.parseInt(props.getProperty("sample_size", "3"));
-        this.T = Integer.parseInt(props.getProperty("shuffle_period", "2000"));
+        this.N = Integer.parseInt(props.getProperty("cln_neigh_size", "6"));
+        this.n = Integer.parseInt(props.getProperty("cln_sample_size", "3"));
+        this.T = Integer.parseInt(props.getProperty("cln_shuffle_period", "2000"));
         this.self = self;
-        this.neighbours = new HashSet<>(N);
-        this.sample = new HashSet<>(n);
+        this.neighbours = null;
+        this.pending = new HashSet<>(N);
+        this.sample = null;
         this.rnd = new Random();
 
         /*--------------------Setup Channel Properties------------------------------- */
         Properties channelProps = new Properties();
-        String channel_metrics_interval = props.getProperty("channel_metrics_interval", "10000");
-        channelProps.setProperty(TCPChannel.ADDRESS_KEY, props.getProperty("address"));
-        channelProps.setProperty(TCPChannel.PORT_KEY, props.getProperty("port"));
+        String channel_metrics_interval = props.getProperty("cln_channel_metrics_interval", "10000");
+        channelProps.setProperty(TCPChannel.ADDRESS_KEY, props.getProperty("cln_address"));
+        channelProps.setProperty(TCPChannel.PORT_KEY, props.getProperty("cln_port"));
         channelProps.setProperty(TCPChannel.METRICS_INTERVAL_KEY, channel_metrics_interval);
         channelProps.setProperty(TCPChannel.HEARTBEAT_INTERVAL_KEY, "1000");
         channelProps.setProperty(TCPChannel.HEARTBEAT_TOLERANCE_KEY, "3000");
@@ -82,8 +86,22 @@ public class Cyclon extends GenericProtocol {
 
 
     @Override
-    public void init(Properties properties) throws HandlerRegistrationException, IOException {
+    public void init(Properties props) throws HandlerRegistrationException, IOException {
         //Todo: Init
+        //  Start join event (N random walk with average path length, 4 or 5, steps), then shuffle(1) with node Q.
+        triggerNotification(new ChannelCreated(channelId));
+        if (props.containsKey("cln_introducer.")) {
+            try {
+                String[] introHostElems = props.getProperty("cln_introducer").split(":");
+                Host contactHost = new Host(InetAddress.getByName(introHostElems[0]), Short.parseShort(introHostElems[1]));
+                pending.add(contactHost);
+                openConnection(contactHost);
+            } catch (Exception e) {
+                logger.error("Invalid contact on configuration: '" + props.getProperty("contacts"));
+                e.printStackTrace();
+                System.exit(-1);
+            }
+        }
     }
 
     // Event triggered after shuffle timeout.
@@ -95,32 +113,27 @@ public class Cyclon extends GenericProtocol {
 
     //Event triggered after a connection is successfully established.
     private void uponOutConnectionUp(OutConnectionUp event, int channelId) {
-        logger.debug("Connection to {} is up", event.getNode());
-        //Todo: Successful connection from self to other.
+        Host peer = event.getNode();
+        pending.remove(peer);
+        if (neighbours.add(peer)) {
+            logger.debug("Connection to {} is up", peer);
+            triggerNotification(new NeighbourUp(peer));
+        }
     }
 
     //Event triggered after a connection fails to be established is disconnected.
     private void uponOutConnectionFailed(OutConnectionFailed<ProtoMessage> event, int channelId) {
-        logger.debug("Connection to {} failed cause: {}", event.getNode(), event.getCause());
-        //Todo: Failed connection from self to other.
+        Host peer = event.getNode();
+        pending.remove(peer);
+        logger.debug("Connection to {} failed cause: {}", peer, event.getCause());
     }
 
     //Event triggered after an established connection is disconnected.
     private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
-        logger.debug("Connection to {} is down cause {}", event.getNode(), event.getCause());
-        //Todo: Disconnected connection.
-    }
-
-    //Event triggered after another process tries to establish a connection with current process.
-    private void uponInConnectionUp(InConnectionUp event, int channelId) {
-        logger.trace("Connection from {} is up", event.getNode());
-        //Todo: Attempt of connection from other to self.
-    }
-
-    //Event triggered after a connection that another process established with current process is disconnected.
-    private void uponInConnectionDown(InConnectionDown event, int channelId) {
-        logger.trace("Connection from {} is down, cause: {}", event.getNode(), event.getCause());
-        //Todo: Connection from other to self down.
+        Host peer = event.getNode();
+        neighbours.remove(peer);
+        logger.debug("Connection to {} is down cause {}", peer, event.getCause());
+        triggerNotification(new NeighbourDown(peer));
     }
 
     /* --------------------------------- Metrics ---------------------------- */
