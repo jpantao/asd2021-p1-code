@@ -8,7 +8,7 @@ import java.io.IOException;
 
 public class JoinMessage extends ProtoMessage {
 
-    public final static short MSG_ID = 112;
+    public final static short MSG_ID = 111;
 
     public JoinMessage() {
         super(MSG_ID);
@@ -16,8 +16,7 @@ public class JoinMessage extends ProtoMessage {
 
     @Override
     public String toString() {
-        return "JoinMessage{" +
-                '}';
+        return "JoinMessage{}";
     }
 
     public static ISerializer<JoinMessage> serializer = new ISerializer<>() {

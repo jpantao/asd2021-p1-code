@@ -9,7 +9,7 @@ import java.io.IOException;
 
 public class ForwardJoinMessage extends ProtoMessage {
 
-    public final static short MSG_ID = 113;
+    public final static short MSG_ID = 112;
 
     private final Host newNode;
     private final int ttl;
@@ -54,4 +54,6 @@ public class ForwardJoinMessage extends ProtoMessage {
                     byteBuf.readInt());
         }
     };
+
+
 }

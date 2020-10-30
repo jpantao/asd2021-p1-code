@@ -8,11 +8,8 @@ import channel.tcp.events.*;
 import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.appender.rolling.action.IfNot;
 import protocols.membership.common.notifications.ChannelCreated;
-import protocols.membership.common.notifications.NeighbourDown;
-import protocols.membership.common.notifications.NeighbourUp;
-import protocols.membership.full.messages.SampleMessage;
+import protocols.membership.hyparview.messages.DisconnectMessage;
 import protocols.membership.hyparview.messages.ForwardJoinMessage;
 import protocols.membership.hyparview.messages.JoinMessage;
 import protocols.membership.hyparview.utils.PartialView;
@@ -21,7 +18,6 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.HashSet;
 import java.util.Properties;
-import java.util.Random;
 import java.util.Set;
 
 public class HyParView extends GenericProtocol {
@@ -102,8 +98,6 @@ public class HyParView extends GenericProtocol {
                 String contact = properties.getProperty("contact");
                 String[] hostElems = contact.split(":");
                 Host contactHost = new Host(InetAddress.getByName(hostElems[0]), Short.parseShort(hostElems[1]));
-                //We add to the pending set until the connection is successful
-                pending.add(contactHost);
                 openConnection(contactHost);
                 sendMessage(new JoinMessage(), contactHost);
                 logger.debug("Establishing connection to contact {}...", contactHost);
@@ -120,19 +114,26 @@ public class HyParView extends GenericProtocol {
     private void uponJoin(JoinMessage msg, Host from, short sourceProto, int channelId) {
         addToActiveView(from);
         ForwardJoinMessage fj_msg = new ForwardJoinMessage(from, arwl);
-        for (Host h: activeView.getView()){
-            if (!h.equals(from))
-                sendMessage(fj_msg, h);
-        }
+        activeView.iterator().forEachRemaining(p -> {
+            if(!p.equals(from))
+                sendMessage(fj_msg, p);
+        });
+
+    }
+
+    private void dropRandomFromActiveView(){
+        Host toDrop  = activeView.getRandom();
+        sendMessage(new DisconnectMessage(), toDrop);
+        activeView.remove(toDrop);
+        passiveView.add(toDrop);
     }
 
     private void addToActiveView(Host newNode){
-        if (activeView.isFull()){
-            Host toDrop  = activeView.getRandom();
-            closeConnection(toDrop);
-            activeView.remove(toDrop);
+        if (!newNode.equals(self) && !activeView.contains(newNode)) {
+            if(activeView.isFull()) dropRandomFromActiveView();
+            openConnection(newNode);
         }
-        activeView.add(newNode);
+
     }
 
     private void uponForwardJoin(ForwardJoinMessage msg, Host from, short sourceProto, int channelId) {
