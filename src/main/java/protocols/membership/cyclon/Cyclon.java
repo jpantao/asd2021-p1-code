@@ -26,6 +26,8 @@ public class Cyclon extends GenericProtocol {
     private final Set<Host> neighbours; //Set of neighbours
     private final Set<Host> sample; //Subset of neighbours sent in previous shuffle
 
+    private final Set<Host> pending;
+
     //Configurable Parameters
     private final int N; //Maximum number of neighbours
     private final int n; //Maximum size of the sample set
@@ -75,8 +77,6 @@ public class Cyclon extends GenericProtocol {
         registerChannelEventHandler(channelId, OutConnectionDown.EVENT_ID, this::uponOutConnectionDown);
         registerChannelEventHandler(channelId, OutConnectionFailed.EVENT_ID, this::uponOutConnectionFailed);
         registerChannelEventHandler(channelId, OutConnectionUp.EVENT_ID, this::uponOutConnectionUp);
-        registerChannelEventHandler(channelId, InConnectionUp.EVENT_ID, this::uponInConnectionUp);
-        registerChannelEventHandler(channelId, InConnectionDown.EVENT_ID, this::uponInConnectionDown);
         registerChannelEventHandler(channelId, ChannelMetrics.EVENT_ID, this::uponChannelMetrics);
     }
 
