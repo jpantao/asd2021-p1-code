@@ -7,9 +7,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.broadcast.common.BroadcastRequest;
 import protocols.broadcast.plumtree.messages.*;
+import protocols.broadcast.plumtree.timers.GossipTimer;
 import protocols.membership.common.notifications.ChannelCreated;
 import protocols.membership.common.notifications.NeighbourDown;
 import protocols.membership.common.notifications.NeighbourUp;
+import protocols.membership.full.timers.SampleTimer;
+
 import java.io.IOException;
 import java.util.*;
 
@@ -36,10 +39,15 @@ public class PlumtreeBroadcast extends GenericProtocol {
         this.channelReady = false;
         this.lazyQueue = new HashMap<>();
 
+        registerTimerHandler(GossipTimer.TIMER_ID, this::uponGossipTimer);
         registerRequestHandler(BroadcastRequest.REQUEST_ID, this::uponBroadcastRequest);
         subscribeNotification(NeighbourUp.NOTIFICATION_ID, this::uponNeighbourUp);
         subscribeNotification(NeighbourDown.NOTIFICATION_ID, this::uponNeighbourDown);
         subscribeNotification(ChannelCreated.NOTIFICATION_ID, this::uponChannelCreated);
+    }
+
+    private void uponGossipTimer(GossipTimer gossipTimer, long timerId) {
+
     }
 
     @Override
@@ -133,7 +141,7 @@ public class PlumtreeBroadcast extends GenericProtocol {
 
     private void uponIHaveMessage(IHaveMessage msg, Host from, short sourceProto, int channelId) {
         if(!received.containsKey(msg.getMid())) {
-            setupTimer()
+            //setupTimer()
         }
     }
 

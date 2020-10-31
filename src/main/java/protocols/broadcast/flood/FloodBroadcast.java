@@ -86,8 +86,6 @@ public class FloodBroadcast extends GenericProtocol {
 
     /*--------------------------------- Messages ---------------------------------------- */
     private void uponFloodMessage(FloodMessage msg, Host from, short sourceProto, int channelId) {
-        System.out.println("Host: " + from);
-        System.out.println("Host: " + msg.getSender());
         logger.trace("Received {} from {}", msg, from);
         //If we already received it once, do nothing (or we would end up with a nasty infinite loop)
         if (received.add(msg.getMid())) {

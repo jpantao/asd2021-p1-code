@@ -26,7 +26,7 @@
 
 
         <Root level="debug">
-            <AppenderRef ref="Console" level="info"/>
+            <AppenderRef ref="Console" level="debug"/>
             <!-- UNCOMMENT TO WRITE LOGS TO A FILE
            <AppenderRef ref="MyFile" level="all"/>
            -->
