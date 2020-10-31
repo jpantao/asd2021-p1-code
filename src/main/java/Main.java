@@ -59,7 +59,7 @@ public class Main {
         //communications in this step.
         broadcastApp.init(props);
         broadcast.init(props);
-        membership.init(props);
+        //membership.init(props);
 
         //Start babel and protocol threads
         babel.start();
