@@ -12,6 +12,7 @@ import protocols.membership.common.notifications.ChannelCreated;
 import protocols.membership.hyparview.messages.DisconnectMessage;
 import protocols.membership.hyparview.messages.ForwardJoinMessage;
 import protocols.membership.hyparview.messages.JoinMessage;
+import protocols.membership.hyparview.messages.JoinReplyMessage;
 import protocols.membership.hyparview.utils.PartialView;
 
 import java.io.IOException;
@@ -28,7 +29,10 @@ public class HyParView extends GenericProtocol {
     public static final short PROTOCOL_ID = 110;
     public static final String PROTOCOL_NAME = "HyParView";
 
-    private final Set<Host> pending; //Peers I am trying to connect to
+    private final Set<Host> pending;
+
+    private final Set<Host> outConn;
+    private final Set<Host> inConn;
 
     private final PartialView<Host> activeView;
     private final PartialView<Host> passiveView;
@@ -50,7 +54,10 @@ public class HyParView extends GenericProtocol {
         this.self = self;
         this.activeView = new PartialView<>(fanout+1);
         this.passiveView = new PartialView<>();
+
         this.pending = new HashSet<>();
+        this.outConn = new HashSet<>();
+        this.inConn = new HashSet<>();
 
         //Load properties
         this.arwl = Integer.parseInt(props.getProperty("hpv_arwl", "2"));
@@ -73,8 +80,10 @@ public class HyParView extends GenericProtocol {
         registerMessageSerializer(channelId, ForwardJoinMessage.MSG_ID, ForwardJoinMessage.serializer);
 
         /*---------------------- Register Message Handlers ------------------------- */
-        registerMessageHandler(channelId, JoinMessage.MSG_ID, this::uponJoin, this::uponMsgFail);
-        registerMessageHandler(channelId, ForwardJoinMessage.MSG_ID, this::uponForwardJoin, this::uponMsgFail);
+        registerMessageHandler(channelId, DisconnectMessage.MSG_ID, this::uponDisconnect, this::uponDisconnectMsgFail);
+        registerMessageHandler(channelId, ForwardJoinMessage.MSG_ID, this::uponForwardJoin, this::uponForwardJoinMsgFail);
+        registerMessageHandler(channelId, JoinMessage.MSG_ID, this::uponJoin, this::uponJoinMsgFail);
+        registerMessageHandler(channelId, JoinReplyMessage.MSG_ID, this::uponJoinReply, this::uponJoinReplyMsgFail);
 
         /*---------------------- Register Timer Handlers --------------------------- */
 
@@ -99,7 +108,9 @@ public class HyParView extends GenericProtocol {
                 String[] hostElems = contact.split(":");
                 Host contactHost = new Host(InetAddress.getByName(hostElems[0]), Short.parseShort(hostElems[1]));
                 openConnection(contactHost);
+                pending.add(contactHost);
                 sendMessage(new JoinMessage(), contactHost);
+                addToActiveView(contactHost);
                 logger.debug("Establishing connection to contact {}...", contactHost);
             } catch (Exception e) {
                 logger.error("Invalid contact on configuration: '" + properties.getProperty("contact"));
@@ -111,6 +122,25 @@ public class HyParView extends GenericProtocol {
 
     /*--------------------------------- Messages ----------------------------------- */
 
+    private void uponDisconnect(DisconnectMessage msg, Host from, short sourceProto, int channelId){
+        if(activeView.contains(from)){
+            activeView.remove(from);
+            passiveView.add(from);
+        }
+    }
+
+    private void uponForwardJoin(ForwardJoinMessage msg, Host from, short sourceProto, int channelId) {
+        if (msg.getTTL() == 0 || activeView.size() == 1){
+            addToActiveView(msg.getNewNode()); //TODO establish connection!
+        } else {
+            if (msg.getTTL() == this.prwl)
+                addToPassiveView(msg.getNewNode());
+            Host forward;
+            while ((forward = activeView.getRandom()).equals(from));
+            sendMessage(new ForwardJoinMessage(msg.getNewNode(), msg.getTTL()-1), forward);
+        }
+    }
+
     private void uponJoin(JoinMessage msg, Host from, short sourceProto, int channelId) {
         addToActiveView(from);
         ForwardJoinMessage fj_msg = new ForwardJoinMessage(from, arwl);
@@ -118,7 +148,6 @@ public class HyParView extends GenericProtocol {
             if(!p.equals(from))
                 sendMessage(fj_msg, p);
         });
-
     }
 
     private void dropRandomFromActiveView(){
@@ -128,50 +157,81 @@ public class HyParView extends GenericProtocol {
         passiveView.add(toDrop);
     }
 
+    //pre: connection to newNode established
     private void addToActiveView(Host newNode){
         if (!newNode.equals(self) && !activeView.contains(newNode)) {
-            if(activeView.isFull()) dropRandomFromActiveView();
-            openConnection(newNode);
+            if(activeView.isFull())
+                dropRandomFromActiveView();
         }
+    }
+
+    private void addToPassiveView(Host newNode){
+        if (!newNode.equals(self) && !activeView.contains(newNode) && !passiveView.contains(newNode) ) {
+            if(passiveView.isFull()){
+                Host toDrop = passiveView.getRandom();
+                passiveView.remove(toDrop);
+            }
+            passiveView.add(newNode);
+        }
+    }
+
+    private void uponJoinReply(DisconnectMessage msg, Host from, short sourceProto, int channelId){
 
     }
 
-    private void uponForwardJoin(ForwardJoinMessage msg, Host from, short sourceProto, int channelId) {
-
-    }
-
-    private void uponMsgFail(ProtoMessage msg, Host host, short destProto,
+    private void uponDisconnectMsgFail(ProtoMessage msg, Host host, short destProto,
                              Throwable throwable, int channelId) {
         //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("Message {} to {} failed, reason: {}", msg, host, throwable);
+        logger.error("Disconnect message {} to {} failed, reason: {}", msg, host, throwable);
     }
 
+    private void uponForwardJoinMsgFail(ProtoMessage msg, Host host, short destProto,
+                                    Throwable throwable, int channelId) {
+        //If a message fails to be sent, for whatever reason, log the message and the reason
+        logger.error("ForwardJoin message {} to {} failed, reason: {}", msg, host, throwable);
+    }
 
-    /*--------------------------------- Timers ------------------------------------- */
+    private void uponJoinMsgFail(ProtoMessage msg, Host host, short destProto,
+                                    Throwable throwable, int channelId) {
+        //If a message fails to be sent, for whatever reason, log the message and the reason
+        logger.error("Join message {} to {} failed, reason: {}", msg, host, throwable);
+
+        activeView.remove(host);
+    }
+
+    private void uponJoinReplyMsgFail(ProtoMessage msg, Host host, short destProto,
+                                 Throwable throwable, int channelId) {
+        //If a message fails to be sent, for whatever reason, log the message and the reason
+        logger.error("JoinReply message {} to {} failed, reason: {}", msg, host, throwable);
+    }
+
+    /* -------------------------------- Timers ------------------------------------- */
 
     /* -------------------------------- TCPChannel Events ------------------------- */
 
     private void uponOutConnectionUp(OutConnectionUp event, int channelId) {
-
+        if(pending.remove(event.getNode()))
+            outConn.add(event.getNode());
     }
 
     private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
-
+        outConn.remove(event.getNode());
     }
 
     private void uponOutConnectionFailed(OutConnectionFailed<ProtoMessage> event, int channelId) {
-        logger.error("Connection to {} failed cause: {}", event.getNode(), event.getCause() );
+        logger.error("Connection to {} failed, reason: {}", event.getNode(), event.getCause() );
         logger.error("Pending lost messages:");
         for (ProtoMessage msg : event.getPendingMessages())
             logger.error("{}", msg);
     }
 
     private void uponInConnectionUp(InConnectionUp event, int channelId) {
-
+        if(pending.remove(event.getNode()))
+            inConn.add(event.getNode());
     }
 
     private void uponInConnectionDown(InConnectionDown event, int channelId) {
-
+        inConn.remove(event.getNode());
     }
 
     /* --------------------------------- Metrics ----------------------------------- */

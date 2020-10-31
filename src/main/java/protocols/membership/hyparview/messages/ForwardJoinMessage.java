@@ -28,7 +28,7 @@ public class ForwardJoinMessage extends ProtoMessage {
         return newNode;
     }
 
-    public int getTtl() {
+    public int getTTL() {
         return ttl;
     }
 
@@ -44,7 +44,7 @@ public class ForwardJoinMessage extends ProtoMessage {
         @Override
         public void serialize(ForwardJoinMessage forwardJoinMessage, ByteBuf byteBuf) throws IOException {
             Host.serializer.serialize(forwardJoinMessage.getNewNode(), byteBuf);
-            byteBuf.writeInt(forwardJoinMessage.getTtl());
+            byteBuf.writeInt(forwardJoinMessage.getTTL());
         }
 
         @Override

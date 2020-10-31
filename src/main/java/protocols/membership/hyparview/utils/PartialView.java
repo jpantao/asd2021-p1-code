@@ -41,12 +41,16 @@ public class PartialView <T>{
         return peers.add(elem);
     }
 
-    public Iterator<T> iterator() {
-        return peers.iterator();
-    }
-
     public boolean remove(T elem) {
         return peers.remove(elem);
+    }
+
+    public int size(){
+        return peers.size();
+    }
+
+    public Iterator<T> iterator() {
+        return peers.iterator();
     }
 
     public T getRandom(){
