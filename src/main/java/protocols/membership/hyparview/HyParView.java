@@ -12,16 +12,21 @@ import protocols.membership.common.notifications.ChannelCreated;
 import protocols.membership.hyparview.messages.DisconnectMessage;
 import protocols.membership.hyparview.messages.ForwardJoinMessage;
 import protocols.membership.hyparview.messages.JoinMessage;
-import protocols.membership.hyparview.messages.JoinReplyMessage;
+import protocols.membership.hyparview.messages.NeighborMessage;
 import protocols.membership.hyparview.utils.PartialView;
 
 import java.io.IOException;
 import java.net.InetAddress;
-import java.util.HashSet;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 public class HyParView extends GenericProtocol {
+
+    public enum PendingConnContext {
+        JOIN,
+        NEW_AV,
+        NEIGHBOR
+    }
+
 
     private static final Logger logger = LogManager.getLogger(HyParView.class);
 
@@ -29,10 +34,8 @@ public class HyParView extends GenericProtocol {
     public static final short PROTOCOL_ID = 110;
     public static final String PROTOCOL_NAME = "HyParView";
 
-    private final Set<Host> pending;
-
+    private final Map<Host, PendingConnContext> pending;
     private final Set<Host> outConn;
-    private final Set<Host> inConn;
 
     private final PartialView<Host> activeView;
     private final PartialView<Host> passiveView;
@@ -48,16 +51,16 @@ public class HyParView extends GenericProtocol {
         super(PROTOCOL_NAME, PROTOCOL_ID);
 
         //TODO: are these needed?
-        int fanout =  Integer.parseInt(props.getProperty("hpv_fanout", "6"));
-        //int network_size = Integer.parseInt(props.getProperty("hpv_network_size", "10"));
+        int aview_size = Integer.parseInt(props.getProperty("hpv_aview_size", "6"));
+        int pview_size = Integer.parseInt(props.getProperty("hpv_pview_size", "10"));
 
         this.self = self;
-        this.activeView = new PartialView<>(fanout+1);
-        this.passiveView = new PartialView<>();
+        this.activeView = new PartialView<>(aview_size);
+        this.passiveView = new PartialView<>(pview_size);
 
-        this.pending = new HashSet<>();
+
+        this.pending = new HashMap<>();
         this.outConn = new HashSet<>();
-        this.inConn = new HashSet<>();
 
         //Load properties
         this.arwl = Integer.parseInt(props.getProperty("hpv_arwl", "2"));
@@ -78,12 +81,14 @@ public class HyParView extends GenericProtocol {
         /*---------------------- Register Message Serializers ---------------------- */
         registerMessageSerializer(channelId, JoinMessage.MSG_ID, JoinMessage.serializer);
         registerMessageSerializer(channelId, ForwardJoinMessage.MSG_ID, ForwardJoinMessage.serializer);
+        registerMessageSerializer(channelId, DisconnectMessage.MSG_ID, DisconnectMessage.serializer);
+
 
         /*---------------------- Register Message Handlers ------------------------- */
-        registerMessageHandler(channelId, DisconnectMessage.MSG_ID, this::uponDisconnect, this::uponDisconnectMsgFail);
-        registerMessageHandler(channelId, ForwardJoinMessage.MSG_ID, this::uponForwardJoin, this::uponForwardJoinMsgFail);
         registerMessageHandler(channelId, JoinMessage.MSG_ID, this::uponJoin, this::uponJoinMsgFail);
-        registerMessageHandler(channelId, JoinReplyMessage.MSG_ID, this::uponJoinReply, this::uponJoinReplyMsgFail);
+        registerMessageHandler(channelId, ForwardJoinMessage.MSG_ID, this::uponForwardJoin, this::uponForwardJoinMsgFail);
+        registerMessageHandler(channelId, DisconnectMessage.MSG_ID, this::uponDisconnect, this::uponDisconnectMsgFail);
+        registerMessageHandler(channelId, NeighborMessage.MSG_ID, this::uponNeighbor, this::uponNeighborMsgFail);
 
         /*---------------------- Register Timer Handlers --------------------------- */
 
@@ -107,13 +112,11 @@ public class HyParView extends GenericProtocol {
                 String contact = properties.getProperty("contact");
                 String[] hostElems = contact.split(":");
                 Host contactHost = new Host(InetAddress.getByName(hostElems[0]), Short.parseShort(hostElems[1]));
+                pending.put(contactHost, PendingConnContext.JOIN);
                 openConnection(contactHost);
-                pending.add(contactHost);
-                sendMessage(new JoinMessage(), contactHost);
-                addToActiveView(contactHost);
                 logger.debug("Establishing connection to contact {}...", contactHost);
             } catch (Exception e) {
-                logger.error("Invalid contact on configuration: '" + properties.getProperty("contact"));
+                logger.error("Invalid contact on configuration: {}", properties.getProperty("contact"));
                 e.printStackTrace();
                 System.exit(-1);
             }
@@ -122,87 +125,61 @@ public class HyParView extends GenericProtocol {
 
     /*--------------------------------- Messages ----------------------------------- */
 
-    private void uponDisconnect(DisconnectMessage msg, Host from, short sourceProto, int channelId){
-        if(activeView.contains(from)){
-            activeView.remove(from);
-            passiveView.add(from);
-        }
-    }
-
-    private void uponForwardJoin(ForwardJoinMessage msg, Host from, short sourceProto, int channelId) {
-        if (msg.getTTL() == 0 || activeView.size() == 1){
-            addToActiveView(msg.getNewNode()); //TODO establish connection!
-        } else {
-            if (msg.getTTL() == this.prwl)
-                addToPassiveView(msg.getNewNode());
-            Host forward;
-            while ((forward = activeView.getRandom()).equals(from));
-            sendMessage(new ForwardJoinMessage(msg.getNewNode(), msg.getTTL()-1), forward);
-        }
-    }
-
     private void uponJoin(JoinMessage msg, Host from, short sourceProto, int channelId) {
         addToActiveView(from);
         ForwardJoinMessage fj_msg = new ForwardJoinMessage(from, arwl);
         activeView.iterator().forEachRemaining(p -> {
-            if(!p.equals(from))
+            if (!p.equals(from))
                 sendMessage(fj_msg, p);
         });
     }
 
-    private void dropRandomFromActiveView(){
-        Host toDrop  = activeView.getRandom();
-        sendMessage(new DisconnectMessage(), toDrop);
-        activeView.remove(toDrop);
-        passiveView.add(toDrop);
-    }
-
-    //pre: connection to newNode established
-    private void addToActiveView(Host newNode){
-        if (!newNode.equals(self) && !activeView.contains(newNode)) {
-            if(activeView.isFull())
-                dropRandomFromActiveView();
-        }
-    }
-
-    private void addToPassiveView(Host newNode){
-        if (!newNode.equals(self) && !activeView.contains(newNode) && !passiveView.contains(newNode) ) {
-            if(passiveView.isFull()){
-                Host toDrop = passiveView.getRandom();
-                passiveView.remove(toDrop);
-            }
-            passiveView.add(newNode);
-        }
-    }
-
-    private void uponJoinReply(DisconnectMessage msg, Host from, short sourceProto, int channelId){
-
-    }
-
-    private void uponDisconnectMsgFail(ProtoMessage msg, Host host, short destProto,
-                             Throwable throwable, int channelId) {
+    private void uponJoinMsgFail(ProtoMessage msg, Host host, short destProto,
+                                 Throwable throwable, int channelId) {
         //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("Disconnect message {} to {} failed, reason: {}", msg, host, throwable);
+        logger.error("Join message {} to {} failed, reason: {}", msg, host, throwable);
+    }
+
+    private void uponForwardJoin(ForwardJoinMessage msg, Host from, short sourceProto, int channelId) {
+        if (msg.getTTL() == 0 || activeView.size() == 1) {
+            addToActiveView(msg.getNewNode());
+        } else {
+            if (msg.getTTL() == this.prwl)
+                addToPassiveView(msg.getNewNode());
+            Host forward;
+            do {
+                forward = activeView.getRandom();
+            } while (forward.equals(from));
+            sendMessage(new ForwardJoinMessage(msg.getNewNode(), msg.getTTL() - 1), forward);
+        }
     }
 
     private void uponForwardJoinMsgFail(ProtoMessage msg, Host host, short destProto,
-                                    Throwable throwable, int channelId) {
+                                        Throwable throwable, int channelId) {
         //If a message fails to be sent, for whatever reason, log the message and the reason
         logger.error("ForwardJoin message {} to {} failed, reason: {}", msg, host, throwable);
     }
 
-    private void uponJoinMsgFail(ProtoMessage msg, Host host, short destProto,
-                                    Throwable throwable, int channelId) {
-        //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("Join message {} to {} failed, reason: {}", msg, host, throwable);
-
-        activeView.remove(host);
+    private void uponDisconnect(DisconnectMessage msg, Host from, short sourceProto, int channelId) {
+        closeConnection(from);
     }
 
-    private void uponJoinReplyMsgFail(ProtoMessage msg, Host host, short destProto,
-                                 Throwable throwable, int channelId) {
+    private void uponDisconnectMsgFail(ProtoMessage msg, Host host, short destProto,
+                                       Throwable throwable, int channelId) {
         //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("JoinReply message {} to {} failed, reason: {}", msg, host, throwable);
+        logger.error("Disconnect message {} to {} failed, reason: {}", msg, host, throwable);
+    }
+
+    private void uponNeighbor(NeighborMessage msg, Host from, short sourceProto, int channelId) {
+        if (activeView.contains(from))
+            return;
+        if (!activeView.isFull() || msg.getPriority() == NeighborMessage.HIGH)
+            addToActiveView(from);
+    }
+
+    private void uponNeighborMsgFail(ProtoMessage msg, Host host, short destProto,
+                                     Throwable throwable, int channelId) {
+        logger.error("Neighbor message {} to {} failed, reason: {}", msg, host, throwable);
     }
 
     /* -------------------------------- Timers ------------------------------------- */
@@ -210,30 +187,114 @@ public class HyParView extends GenericProtocol {
     /* -------------------------------- TCPChannel Events ------------------------- */
 
     private void uponOutConnectionUp(OutConnectionUp event, int channelId) {
-        if(pending.remove(event.getNode()))
-            outConn.add(event.getNode());
+        Host peer = event.getNode();
+        logger.debug("Connection to {} is up", peer);
+
+        PendingConnContext context = pending.remove(peer);
+        if (context == null)
+            return;
+        outConn.add(peer);
+
+        switch (context) {
+            case JOIN:
+                addToActiveView(peer);
+                sendMessage(new JoinMessage(), peer);
+                break;
+            case NEW_AV:
+                addToActiveView(peer);
+                sendMessage(new NeighborMessage(NeighborMessage.HIGH), peer);
+                break;
+            case NEIGHBOR:
+                short priority = activeView.size() == 0 ?
+                        NeighborMessage.HIGH :
+                        NeighborMessage.LOW;
+                sendMessage(new NeighborMessage(priority), peer);
+                break;
+            default:
+                logger.error("Undisclosed pending connection context: {}", context);
+        }
     }
 
     private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
+        logger.debug("Connection to {} is down cause {}", event.getNode(), event.getCause());
+
         outConn.remove(event.getNode());
+        activeView.remove(event.getNode());
+
+        tryNewNeighbor();
     }
 
+
     private void uponOutConnectionFailed(OutConnectionFailed<ProtoMessage> event, int channelId) {
-        logger.error("Connection to {} failed, reason: {}", event.getNode(), event.getCause() );
+        logger.error("Connection to {} failed, reason: {}", event.getNode(), event.getCause());
         logger.error("Pending lost messages:");
         for (ProtoMessage msg : event.getPendingMessages())
             logger.error("{}", msg);
+
+        Host peer = event.getNode();
+        PendingConnContext context = pending.remove(peer);
+        if (context == null)
+            return;
+
+        switch (context) {
+            case JOIN:
+            case NEW_AV:
+            case NEIGHBOR:
+                tryNewNeighbor();
+                break;
+            default:
+                logger.error("Undisclosed pending connection context: {}", context);
+        }
+
     }
 
     private void uponInConnectionUp(InConnectionUp event, int channelId) {
-        if(pending.remove(event.getNode()))
-            inConn.add(event.getNode());
+        logger.trace("Connection from {} is up", event.getNode());
     }
 
     private void uponInConnectionDown(InConnectionDown event, int channelId) {
-        inConn.remove(event.getNode());
+        logger.trace("Connection from {} is down, cause: {}", event.getNode(), event.getCause());
     }
 
     /* --------------------------------- Metrics ----------------------------------- */
-    
+
+    /* --------------------------------- Auxiliary --------------------------------- */
+
+    private void dropRandomFromActiveView() {
+        Host toDrop = activeView.getRandom();
+        sendMessage(new DisconnectMessage(), toDrop);
+        closeConnection(toDrop);
+        activeView.remove(toDrop);
+        passiveView.add(toDrop);
+    }
+
+    private void addToActiveView(Host newNode) {
+        if (outConn.contains(newNode)) {
+            if (!newNode.equals(self) && !activeView.contains(newNode)) {
+                if (activeView.isFull())
+                    dropRandomFromActiveView();
+                activeView.add(newNode);
+                logger.debug("Added {} to the active view", newNode);
+            }
+        } else {
+            pending.put(newNode, PendingConnContext.NEW_AV);
+            openConnection(newNode);
+        }
+    }
+
+    private void addToPassiveView(Host newNode) {
+        if (!newNode.equals(self) && !activeView.contains(newNode) && !passiveView.contains(newNode)) {
+            if (passiveView.isFull()) {
+                Host toDrop = passiveView.getRandom();
+                passiveView.remove(toDrop);
+            }
+            passiveView.add(newNode);
+        }
+    }
+
+    private void tryNewNeighbor() {
+        Host peer = passiveView.getRandom();
+        passiveView.remove(peer);
+        pending.put(peer, PendingConnContext.NEIGHBOR);
+    }
 }

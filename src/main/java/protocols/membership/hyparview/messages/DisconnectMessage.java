@@ -8,7 +8,7 @@ import java.io.IOException;
 
 public class DisconnectMessage extends ProtoMessage {
 
-    public final static short MSG_ID = 113;
+    public final static short MSG_ID = 111;
 
     public DisconnectMessage(){
         super(MSG_ID);

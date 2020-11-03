@@ -8,7 +8,7 @@ import java.io.IOException;
 
 public class JoinMessage extends ProtoMessage {
 
-    public final static short MSG_ID = 111;
+    public final static short MSG_ID = 113;
 
     public JoinMessage() {
         super(MSG_ID);

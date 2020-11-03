@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import protocols.apps.BroadcastApp;
 import protocols.broadcast.flood.FloodBroadcast;
 import protocols.membership.full.SimpleFullMembership;
+import protocols.membership.hyparview.HyParView;
 import utils.InterfaceToIp;
 
 import java.net.InetAddress;
@@ -48,11 +49,13 @@ public class Main {
         // Broadcast Protocol
         FloodBroadcast broadcast = new FloodBroadcast(props, myself);
         // Membership Protocol
-        SimpleFullMembership membership = new SimpleFullMembership(props, myself);
+        //SimpleFullMembership membership = new SimpleFullMembership(props, myself);
+        HyParView membership = new HyParView(props, myself);
+
 
         //Register applications in babel
-        babel.registerProtocol(broadcastApp);
-        babel.registerProtocol(broadcast);
+        //babel.registerProtocol(broadcastApp);
+        //babel.registerProtocol(broadcast);
         babel.registerProtocol(membership);
 
         //Init the protocols. This should be done after creating all protocols, since there can be inter-protocol

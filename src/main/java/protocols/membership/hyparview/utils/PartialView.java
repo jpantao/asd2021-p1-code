@@ -54,7 +54,7 @@ public class PartialView <T>{
     }
 
     public T getRandom(){
-        int idx = rnd.nextInt(maxSize);
+        int idx = rnd.nextInt(peers.size());
         int i = 0;
         for (T elem : peers){
             if (i == idx)
