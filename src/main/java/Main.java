@@ -57,8 +57,8 @@ public class Main {
 
         //Init the protocols. This should be done after creating all protocols, since there can be inter-protocol
         //communications in this step.
-        //broadcastApp.init(props);
-        //broadcast.init(props);
+        broadcastApp.init(props);
+        broadcast.init(props);
         membership.init(props);
 
         //Start babel and protocol threads

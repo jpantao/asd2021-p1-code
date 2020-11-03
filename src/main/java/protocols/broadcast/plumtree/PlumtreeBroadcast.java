@@ -11,7 +11,6 @@ import protocols.broadcast.plumtree.timers.GossipTimer;
 import protocols.membership.common.notifications.ChannelCreated;
 import protocols.membership.common.notifications.NeighbourDown;
 import protocols.membership.common.notifications.NeighbourUp;
-import protocols.membership.full.timers.SampleTimer;
 
 import java.io.IOException;
 import java.util.*;
@@ -25,8 +24,9 @@ public class PlumtreeBroadcast extends GenericProtocol {
     private final Set<Host> eagerPushPeers;
     private final Set<Host> lazyPushPeers;
     private final Map<UUID,GossipMessage> received;
-    private final Queue<IHaveMessage> missing;
+    private final List<IHaveMessage> missing;
     private final Map<Host,Announcements> lazyQueue;
+    private Map<UUID,Long> gossipTimers;
     private boolean channelReady;
 
     public PlumtreeBroadcast(Properties properties,Host myself) throws HandlerRegistrationException {
@@ -38,16 +38,12 @@ public class PlumtreeBroadcast extends GenericProtocol {
         this.missing = new LinkedList<>();
         this.channelReady = false;
         this.lazyQueue = new HashMap<>();
-
+        this.gossipTimers = new HashMap<>();
         registerTimerHandler(GossipTimer.TIMER_ID, this::uponGossipTimer);
         registerRequestHandler(BroadcastRequest.REQUEST_ID, this::uponBroadcastRequest);
         subscribeNotification(NeighbourUp.NOTIFICATION_ID, this::uponNeighbourUp);
         subscribeNotification(NeighbourDown.NOTIFICATION_ID, this::uponNeighbourDown);
         subscribeNotification(ChannelCreated.NOTIFICATION_ID, this::uponChannelCreated);
-    }
-
-    private void uponGossipTimer(GossipTimer gossipTimer, long timerId) {
-
     }
 
     @Override
@@ -125,7 +121,10 @@ public class PlumtreeBroadcast extends GenericProtocol {
     private void uponGossipMessage(GossipMessage msg, Host from, short sourceProto, int channelId) {
         if(!received.containsKey(msg.getMid())) {
             received.put(msg.getMid(),msg);
-            //TODO setup/cancel timers
+            if(gossipTimers.containsKey(msg.getMid())) {
+                long timerID = gossipTimers.get(msg.getMid());
+                cancelTimer(timerID);
+            }
             msg.setRound();
             eagerPush(msg,myself);
             lazyPush(sourceProto,new IHaveMessage(msg.getMid(),myself,sourceProto,msg.getRound()));
@@ -141,7 +140,30 @@ public class PlumtreeBroadcast extends GenericProtocol {
 
     private void uponIHaveMessage(IHaveMessage msg, Host from, short sourceProto, int channelId) {
         if(!received.containsKey(msg.getMid())) {
-            //setupTimer()
+            if(!gossipTimers.containsKey(msg.getMid())) {
+                long timerID = setupTimer(new GossipTimer(msg.getMid()),10); //TODO define better timeouts
+                gossipTimers.put(msg.getMid(),timerID);
+            }
+            missing.add(msg);
+        }
+    }
+
+    private void uponGossipTimer(GossipTimer gossipTimer, long timerId) {
+        long timerID = setupTimer(gossipTimer,5); //TODO define better timeouts
+        gossipTimers.put(gossipTimer.getMsgID(),timerID);
+        IHaveMessage m = null;
+        for(IHaveMessage iHave: missing)
+            if(iHave.getMid().equals(gossipTimer.getMsgID())) {
+                m = iHave;
+                missing.remove(iHave);
+                break;
+            }
+
+        if(m != null) {
+            eagerPushPeers.add(m.getSender());
+            lazyPushPeers.remove(m.getSender());
+            GraftMessage graftMessage = new GraftMessage(m.getMid(),m.getSender(),m.getToDeliver());
+            sendMessage(graftMessage,m.getSender());
         }
     }
 
@@ -151,31 +173,13 @@ public class PlumtreeBroadcast extends GenericProtocol {
     }
 
     private void uponGraftMessage(GraftMessage msg, Host from, short sourceProto, int channelId) {
-
+        eagerPushPeers.add(from);
+        lazyPushPeers.remove(from);
+        if(received.containsKey(msg.getMid()))
+            sendMessage(received.get(msg.getMid()),from);
     }
 
-    private void uponAnnouncementsMessageFail(ProtoMessage msg, Host host, short destProto,
-                                              Throwable throwable, int channelId) {
-    }
-
-    private void uponGossipFail(ProtoMessage msg, Host host, short destProto,
-                             Throwable throwable, int channelId) {
-    }
-
-    private void uponIHaveMessageFail(ProtoMessage msg, Host host, short destProto,
-                                Throwable throwable, int channelId) {
-    }
-
-
-    private void uponPruneMessageFail(ProtoMessage msg, Host host, short destProto,
-                                Throwable throwable, int channelId) {
-    }
-
-    private void uponGraftMessageFail(ProtoMessage msg, Host host, short destProto,
-                                      Throwable throwable, int channelId) {
-    }
-
-
+    //---------------------------------------------Neighbour events-----------------------------------------------------
     private void uponNeighbourUp(NeighbourUp notification, short sourceProto) {
         for(Host h: notification.getNeighbours()) {
             eagerPushPeers.add(h);
@@ -189,12 +193,26 @@ public class PlumtreeBroadcast extends GenericProtocol {
             lazyPushPeers.remove(h);
             logger.info("Neighbour down: " + h);
             missing.removeIf(m -> m.getSender().equals(h));
-
-            /*
-            for(IHaveMessage message: missing) {
-                if(message.getSender().equals(h))
-                    missing.remove(message);
-            }*/
         }
+    }
+
+    private void uponAnnouncementsMessageFail(ProtoMessage msg, Host host, short destProto,
+                                              Throwable throwable, int channelId) {
+    }
+
+    private void uponGossipFail(ProtoMessage msg, Host host, short destProto,
+                                Throwable throwable, int channelId) {
+    }
+
+    private void uponIHaveMessageFail(ProtoMessage msg, Host host, short destProto,
+                                      Throwable throwable, int channelId) {
+    }
+
+    private void uponPruneMessageFail(ProtoMessage msg, Host host, short destProto,
+                                      Throwable throwable, int channelId) {
+    }
+
+    private void uponGraftMessageFail(ProtoMessage msg, Host host, short destProto,
+                                      Throwable throwable, int channelId) {
     }
 }
