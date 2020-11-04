@@ -9,6 +9,8 @@ import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.membership.common.notifications.ChannelCreated;
+import protocols.membership.common.notifications.NeighbourDown;
+import protocols.membership.common.notifications.NeighbourUp;
 import protocols.membership.hyparview.messages.*;
 import protocols.membership.hyparview.timers.ShuffleTimer;
 import protocols.membership.hyparview.utils.PartialView;
@@ -37,10 +39,10 @@ public class HyParView extends GenericProtocol {
     private final Set<Host> temporary;
     private final Set<Host> outConn;
 
-    private final PartialView<Host> activeView;
-    private final PartialView<Host> passiveView;
+    private final PartialView activeView;
+    private final PartialView passiveView;
 
-    private final Set<Host> currentSample;
+    private Set<Host> currentSample;
 
     private final int arwl;
     private final int prwl;
@@ -63,8 +65,8 @@ public class HyParView extends GenericProtocol {
         int pview_size = Integer.parseInt(props.getProperty("hpv_pview_size", "10"));
 
         this.self = self;
-        this.activeView = new PartialView<>(aview_size);
-        this.passiveView = new PartialView<>(pview_size);
+        this.activeView = new PartialView(aview_size);
+        this.passiveView = new PartialView(pview_size);
 
         this.pending = new HashMap<>();
         this.temporary = new HashSet<>();
@@ -78,7 +80,6 @@ public class HyParView extends GenericProtocol {
         this.shuffle_ka = Integer.parseInt(props.getProperty("hpv_shuffle_ka", "2"));
         this.shuffle_kp = Integer.parseInt(props.getProperty("hpv_shuffle_kp", "5"));
         this.shuffle_ttl = Integer.parseInt(props.getProperty("hpv_shuffle_ttl", "2"));
-
         this.shuffleTime = Integer.parseInt(props.getProperty("hpv_shuffle_time", "10000")); //10 seconds
 
         String cMetricsInterval = props.getProperty("channel_metrics_interval", "10000"); //10 seconds
@@ -192,7 +193,6 @@ public class HyParView extends GenericProtocol {
             pending.put(msg.getOrigin(), PendingConnContext.SHUFFLE_REPLY);
             openConnection(msg.getOrigin());
             sendMessage(new ShuffleReplyMessage(replySample), msg.getOrigin());
-            closeConnection(msg.getOrigin());
             addToPassiveConsidering(msg.getSample(), replySample);
             logger.debug("Shuffle accepted, waiting for connection to {}, sending {}", msg.getOrigin(), replySample);
         } else {
@@ -219,15 +219,11 @@ public class HyParView extends GenericProtocol {
     /* -------------------------------- Timers ------------------------------------- */
 
     private void uponShuffleTimer(ShuffleTimer timer, long timerId) {
-        if(currentSample == null) {
-            Set<Host> sample = new HashSet<>();
-            sample.addAll(activeView.getRandomSubset(this.shuffle_ka));
-            sample.addAll(passiveView.getRandomSubset(this.shuffle_kp));
-            sendMessage(new ShuffleMessage(sample, this.shuffle_ttl, self), activeView.getRandom());
-            logger.debug("Shuffle sample sent: {}", sample);
-        } else {
-            logger.debug("Shuffle timer skipped (waiting for shuffle reply)");
-        }
+        this.currentSample= new HashSet<>();
+        this.currentSample.addAll(activeView.getRandomSubset(this.shuffle_ka));
+        this.currentSample.addAll(passiveView.getRandomSubset(this.shuffle_kp));
+        sendMessage(new ShuffleMessage(this.currentSample, this.shuffle_ttl, self), activeView.getRandom());
+        logger.debug("Shuffle sample sent: {}", this.currentSample);
     }
 
     /* -------------------------------- TCPChannel Events ------------------------- */
@@ -257,6 +253,7 @@ public class HyParView extends GenericProtocol {
                 sendMessage(new NeighborMessage(priority), peer);
                 break;
             case SHUFFLE_REPLY:
+                closeConnection(event.getNode());
                 temporary.add(peer);
                 logger.debug("Temporary connection to {} established", peer);
                 break;
@@ -275,6 +272,7 @@ public class HyParView extends GenericProtocol {
             return;
 
         //else was an active view node
+        triggerNotification(new NeighbourDown(event.getNode()));
         activeView.remove(event.getNode());
     }
 
@@ -330,6 +328,7 @@ public class HyParView extends GenericProtocol {
                 if (activeView.isFull())
                     dropRandomFromActiveView();
                 activeView.add(newNode);
+                triggerNotification(new NeighbourUp(newNode));
                 logger.debug("Added {} to the active view", newNode);
             }
         } else {
@@ -358,14 +357,15 @@ public class HyParView extends GenericProtocol {
 
     private void addToPassiveConsidering(Set<Host> sample, Set<Host> sentPeers){
         int removed = 0;
+
         for(Host h : sentPeers){
             if(passiveView.remove(h))
                 removed ++;
-            if (removed == sample.size())
+            if (removed == sample.size() || passiveView.size() == 0)
                 break;
         }
 
-        while (removed < sample.size()){
+        while (removed < sample.size() && passiveView.size() > 0){
             passiveView.remove(passiveView.getRandom());
             removed++;
         }

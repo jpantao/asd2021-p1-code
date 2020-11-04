@@ -4,10 +4,10 @@ import network.data.Host;
 
 import java.util.*;
 
-public class PartialView <T>{
+public class PartialView{
 
     private final int maxSize;
-    private final Set<T> peers;
+    private final Set<Host> peers;
     private final Random rnd;
 
     public PartialView(int maxSize) {
@@ -24,7 +24,7 @@ public class PartialView <T>{
         this.rnd = new Random();
     }
 
-    public boolean contains(T elem){
+    public boolean contains(Host elem){
         return peers.contains(elem);
     }
 
@@ -34,13 +34,13 @@ public class PartialView <T>{
         return peers.size() == maxSize;
     }
 
-    public boolean add(T elem) {
+    public boolean add(Host elem) {
         if (this.isFull())
             return false;
         return peers.add(elem);
     }
 
-    public boolean remove(T elem) {
+    public boolean remove(Host elem) {
         return peers.remove(elem);
     }
 
@@ -48,14 +48,14 @@ public class PartialView <T>{
         return peers.size();
     }
 
-    public Iterator<T> iterator() {
+    public Iterator<Host> iterator() {
         return peers.iterator();
     }
 
-    public T getRandom(){
+    public Host getRandom(){
         int idx = rnd.nextInt(peers.size());
         int i = 0;
-        for (T elem : peers){
+        for (Host elem : peers){
             if (i == idx)
                 return elem;
             i++;
@@ -63,16 +63,16 @@ public class PartialView <T>{
         return null;
     }
 
-    public T getRandomExcluding(T exclude){
-        T random;
+    public Host getRandomExcluding(Host exclude){
+        Host random;
         do { //get random except from
             random = getRandom();
         } while (random.equals(exclude));
         return random;
     }
 
-    public Set<T> getRandomSubset(int subsetSize) {
-        List<T> list = new LinkedList<>(peers);
+    public Set<Host> getRandomSubset(int subsetSize) {
+        List<Host> list = new LinkedList<>(peers);
         Collections.shuffle(list);
         return new HashSet<>(list.subList(0, Math.min(subsetSize, list.size())));
     }

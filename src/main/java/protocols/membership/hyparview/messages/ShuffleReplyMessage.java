@@ -11,7 +11,7 @@ import java.util.Set;
 
 public class ShuffleReplyMessage extends ProtoMessage {
 
-    public final static short MSG_ID = 114;
+    public final static short MSG_ID = 116;
 
     private final Set<Host> sample;
 
