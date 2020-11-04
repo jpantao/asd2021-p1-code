@@ -36,7 +36,6 @@ public class HyParView extends GenericProtocol {
     public static final String PROTOCOL_NAME = "HyParView";
 
     private final Map<Host, PendingConnContext> pending;
-    private final Set<Host> temporary;
     private final Set<Host> outConn;
 
     private final PartialView activeView;
@@ -69,7 +68,6 @@ public class HyParView extends GenericProtocol {
         this.passiveView = new PartialView(pview_size);
 
         this.pending = new HashMap<>();
-        this.temporary = new HashSet<>();
         this.outConn = new HashSet<>();
 
         this.currentSample = null;
@@ -180,7 +178,7 @@ public class HyParView extends GenericProtocol {
 
     private void uponDisconnect(DisconnectMessage msg, Host from, short sourceProto, int channelId) {
         logger.debug("Received disconnect {} from {}", msg, from);
-        closeConnection(from);
+        dropNeighbor(from);
         tryNewNeighbor();
     }
 
@@ -219,7 +217,7 @@ public class HyParView extends GenericProtocol {
     /* -------------------------------- Timers ------------------------------------- */
 
     private void uponShuffleTimer(ShuffleTimer timer, long timerId) {
-        if(passiveView.size() == 0)
+        if(passiveView.size() == 0 || activeView.size() == 0)
             return;
 
         this.currentSample= new HashSet<>();
@@ -257,7 +255,6 @@ public class HyParView extends GenericProtocol {
                 break;
             case SHUFFLE_REPLY:
                 closeConnection(event.getNode());
-                temporary.add(peer);
                 logger.debug("Temporary connection to {} established", peer);
                 break;
             default:
@@ -268,15 +265,13 @@ public class HyParView extends GenericProtocol {
     private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
         logger.debug("Connection to {} is down cause {}", event.getNode(), event.getCause());
 
-        outConn.remove(event.getNode());
+        if(!activeView.contains(event.getNode()))
+            outConn.remove(event.getNode());
+        else {
+            dropNeighbor(event.getNode());
+            tryNewNeighbor();
+        }
 
-        //finished if it is a temporary conn
-        if(temporary.remove(event.getNode()))
-            return;
-
-        //else was an active view node
-        triggerNotification(new NeighbourDown(event.getNode()));
-        activeView.remove(event.getNode());
     }
 
 
@@ -288,19 +283,9 @@ public class HyParView extends GenericProtocol {
 
         Host peer = event.getNode();
         PendingConnContext context = pending.remove(peer);
-        if (context == null)
-            return;
 
-        switch (context) {
-            case JOIN:
-            case NEW_AV:
-            case NEIGHBOR:
-                tryNewNeighbor();
-                break;
-            case SHUFFLE_REPLY:
-                break;
-            default:
-                logger.error("Undisclosed pending connection context: {}", context);
+        if (context == PendingConnContext.NEIGHBOR) {
+            tryNewNeighbor();
         }
 
     }
@@ -320,9 +305,14 @@ public class HyParView extends GenericProtocol {
     private void dropRandomFromActiveView() {
         Host toDrop = activeView.getRandom();
         sendMessage(new DisconnectMessage(), toDrop);
+        dropNeighbor(toDrop);
+        passiveView.add(toDrop);
+    }
+
+    private void dropNeighbor(Host toDrop) {
+        triggerNotification(new NeighbourDown(toDrop));
         closeConnection(toDrop);
         activeView.remove(toDrop);
-        passiveView.add(toDrop);
     }
 
     private void addToActiveView(Host newNode) {
