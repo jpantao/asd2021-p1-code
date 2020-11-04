@@ -219,6 +219,9 @@ public class HyParView extends GenericProtocol {
     /* -------------------------------- Timers ------------------------------------- */
 
     private void uponShuffleTimer(ShuffleTimer timer, long timerId) {
+        if(passiveView.size() == 0)
+            return;
+
         this.currentSample= new HashSet<>();
         this.currentSample.addAll(activeView.getRandomSubset(this.shuffle_ka));
         this.currentSample.addAll(passiveView.getRandomSubset(this.shuffle_kp));

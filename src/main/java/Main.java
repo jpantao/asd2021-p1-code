@@ -54,8 +54,8 @@ public class Main {
 
 
         //Register applications in babel
-        //babel.registerProtocol(broadcastApp);
-        //babel.registerProtocol(broadcast);
+        babel.registerProtocol(broadcastApp);
+        babel.registerProtocol(broadcast);
         babel.registerProtocol(membership);
 
         //Init the protocols. This should be done after creating all protocols, since there can be inter-protocol
