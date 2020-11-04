@@ -107,6 +107,7 @@ public class HyParView extends GenericProtocol {
         registerMessageHandler(channelId, DisconnectMessage.MSG_ID, this::uponDisconnect, this::uponMsgFail);
         registerMessageHandler(channelId, NeighborMessage.MSG_ID, this::uponNeighbor, this::uponMsgFail);
         registerMessageHandler(channelId, ShuffleMessage.MSG_ID, this::uponShuffle, this::uponMsgFail);
+        registerMessageHandler(channelId, ShuffleReplyMessage.MSG_ID, this::uponShuffleReply, this::uponMsgFail);
 
         /*---------------------- Register Timer Handlers --------------------------- */
         registerTimerHandler(ShuffleTimer.TIMER_ID, this::uponShuffleTimer);
@@ -354,6 +355,6 @@ public class HyParView extends GenericProtocol {
     }
 
     private void addToPassiveConsidering(Set<Host> sentPeers){
-        
+
     }
 }
