@@ -193,6 +193,7 @@ public class HyParView extends GenericProtocol {
             openConnection(msg.getOrigin());
             sendMessage(new ShuffleReplyMessage(replySample), msg.getOrigin());
             closeConnection(msg.getOrigin());
+            addToPassiveConsidering(msg.getSample(), replySample);
             logger.debug("Shuffle accepted, waiting for connection to {}, sending {}", msg.getOrigin(), replySample);
         } else {
             Host forward = activeView.getRandomExcluding(from);
@@ -205,6 +206,7 @@ public class HyParView extends GenericProtocol {
         logger.debug("Received shuffle reply {} from {}", msg, from);
         Set<Host> sample = msg.getSample();
         sample.remove(self);
+        addToPassiveConsidering(sample, this.currentSample);
     }
 
 
@@ -354,7 +356,22 @@ public class HyParView extends GenericProtocol {
         }
     }
 
-    private void addToPassiveConsidering(Set<Host> sentPeers){
+    private void addToPassiveConsidering(Set<Host> sample, Set<Host> sentPeers){
+        int removed = 0;
+        for(Host h : sentPeers){
+            if(passiveView.remove(h))
+                removed ++;
+            if (removed == sample.size())
+                break;
+        }
+
+        while (removed < sample.size()){
+            passiveView.remove(passiveView.getRandom());
+            removed++;
+        }
+
+        for(Host h : sample)
+            passiveView.add(h);
 
     }
 }
