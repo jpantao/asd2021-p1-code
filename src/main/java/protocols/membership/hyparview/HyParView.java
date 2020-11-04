@@ -9,10 +9,8 @@ import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.membership.common.notifications.ChannelCreated;
-import protocols.membership.hyparview.messages.DisconnectMessage;
-import protocols.membership.hyparview.messages.ForwardJoinMessage;
-import protocols.membership.hyparview.messages.JoinMessage;
-import protocols.membership.hyparview.messages.NeighborMessage;
+import protocols.membership.hyparview.messages.*;
+import protocols.membership.hyparview.timers.ShuffleTimer;
 import protocols.membership.hyparview.utils.PartialView;
 
 import java.io.IOException;
@@ -24,7 +22,8 @@ public class HyParView extends GenericProtocol {
     public enum PendingConnContext {
         JOIN,
         NEW_AV,
-        NEIGHBOR
+        NEIGHBOR,
+        SHUFFLE_REPLY,
     }
 
 
@@ -35,17 +34,26 @@ public class HyParView extends GenericProtocol {
     public static final String PROTOCOL_NAME = "HyParView";
 
     private final Map<Host, PendingConnContext> pending;
+    private final Set<Host> temporary;
     private final Set<Host> outConn;
 
     private final PartialView<Host> activeView;
     private final PartialView<Host> passiveView;
 
-    private final Host self; //My own address/port
-
-    private final int channelId; //Id of the created channel
+    private final Set<Host> currentSample;
 
     private final int arwl;
     private final int prwl;
+    private final int shuffle_ka;
+    private final int shuffle_kp;
+    private final int shuffle_ttl;
+
+    private final int shuffleTime;
+
+    private final Host self; //My own address/port
+
+
+    private final int channelId; //Id of the created channel
 
     public HyParView(Properties props, Host self) throws IOException, HandlerRegistrationException {
         super(PROTOCOL_NAME, PROTOCOL_ID);
@@ -58,13 +66,20 @@ public class HyParView extends GenericProtocol {
         this.activeView = new PartialView<>(aview_size);
         this.passiveView = new PartialView<>(pview_size);
 
-
         this.pending = new HashMap<>();
+        this.temporary = new HashSet<>();
         this.outConn = new HashSet<>();
+
+        this.currentSample = null;
 
         //Load properties
         this.arwl = Integer.parseInt(props.getProperty("hpv_arwl", "2"));
         this.prwl = Integer.parseInt(props.getProperty("hpv_prwl", "1"));
+        this.shuffle_ka = Integer.parseInt(props.getProperty("hpv_shuffle_ka", "2"));
+        this.shuffle_kp = Integer.parseInt(props.getProperty("hpv_shuffle_kp", "5"));
+        this.shuffle_ttl = Integer.parseInt(props.getProperty("hpv_shuffle_ttl", "2"));
+
+        this.shuffleTime = Integer.parseInt(props.getProperty("hpv_shuffle_time", "10000")); //10 seconds
 
         String cMetricsInterval = props.getProperty("channel_metrics_interval", "10000"); //10 seconds
 
@@ -82,15 +97,19 @@ public class HyParView extends GenericProtocol {
         registerMessageSerializer(channelId, JoinMessage.MSG_ID, JoinMessage.serializer);
         registerMessageSerializer(channelId, ForwardJoinMessage.MSG_ID, ForwardJoinMessage.serializer);
         registerMessageSerializer(channelId, DisconnectMessage.MSG_ID, DisconnectMessage.serializer);
-
+        registerMessageSerializer(channelId, NeighborMessage.MSG_ID, NeighborMessage.serializer);
+        registerMessageSerializer(channelId, ShuffleMessage.MSG_ID, ShuffleMessage.serializer);
+        registerMessageSerializer(channelId, ShuffleReplyMessage.MSG_ID, ShuffleReplyMessage.serializer);
 
         /*---------------------- Register Message Handlers ------------------------- */
-        registerMessageHandler(channelId, JoinMessage.MSG_ID, this::uponJoin, this::uponJoinMsgFail);
-        registerMessageHandler(channelId, ForwardJoinMessage.MSG_ID, this::uponForwardJoin, this::uponForwardJoinMsgFail);
-        registerMessageHandler(channelId, DisconnectMessage.MSG_ID, this::uponDisconnect, this::uponDisconnectMsgFail);
-        registerMessageHandler(channelId, NeighborMessage.MSG_ID, this::uponNeighbor, this::uponNeighborMsgFail);
+        registerMessageHandler(channelId, JoinMessage.MSG_ID, this::uponJoin, this::uponMsgFail);
+        registerMessageHandler(channelId, ForwardJoinMessage.MSG_ID, this::uponForwardJoin, this::uponMsgFail);
+        registerMessageHandler(channelId, DisconnectMessage.MSG_ID, this::uponDisconnect, this::uponMsgFail);
+        registerMessageHandler(channelId, NeighborMessage.MSG_ID, this::uponNeighbor, this::uponMsgFail);
+        registerMessageHandler(channelId, ShuffleMessage.MSG_ID, this::uponShuffle, this::uponMsgFail);
 
         /*---------------------- Register Timer Handlers --------------------------- */
+        registerTimerHandler(ShuffleTimer.TIMER_ID, this::uponShuffleTimer);
 
         /*---------------------- Register Channel Events --------------------------- */
         registerChannelEventHandler(channelId, OutConnectionDown.EVENT_ID, this::uponOutConnectionDown);
@@ -121,11 +140,14 @@ public class HyParView extends GenericProtocol {
                 System.exit(-1);
             }
         }
+
+        setupPeriodicTimer(new ShuffleTimer(), this.shuffleTime, this.shuffleTime);
     }
 
     /*--------------------------------- Messages ----------------------------------- */
 
     private void uponJoin(JoinMessage msg, Host from, short sourceProto, int channelId) {
+        logger.debug("Received join {} from {}", msg, from);
         addToActiveView(from);
         ForwardJoinMessage fj_msg = new ForwardJoinMessage(from, arwl);
         activeView.iterator().forEachRemaining(p -> {
@@ -134,55 +156,76 @@ public class HyParView extends GenericProtocol {
         });
     }
 
-    private void uponJoinMsgFail(ProtoMessage msg, Host host, short destProto,
-                                 Throwable throwable, int channelId) {
-        //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("Join message {} to {} failed, reason: {}", msg, host, throwable);
-    }
-
     private void uponForwardJoin(ForwardJoinMessage msg, Host from, short sourceProto, int channelId) {
+        logger.debug("Received forward join {} from {}", msg, from);
         if (msg.getTTL() == 0 || activeView.size() == 1) {
             addToActiveView(msg.getNewNode());
         } else {
             if (msg.getTTL() == this.prwl)
                 addToPassiveView(msg.getNewNode());
-            Host forward;
-            do {
-                forward = activeView.getRandom();
-            } while (forward.equals(from));
+            Host forward = activeView.getRandomExcluding(from);
             sendMessage(new ForwardJoinMessage(msg.getNewNode(), msg.getTTL() - 1), forward);
         }
     }
 
-    private void uponForwardJoinMsgFail(ProtoMessage msg, Host host, short destProto,
-                                        Throwable throwable, int channelId) {
-        //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("ForwardJoin message {} to {} failed, reason: {}", msg, host, throwable);
-    }
-
-    private void uponDisconnect(DisconnectMessage msg, Host from, short sourceProto, int channelId) {
-        closeConnection(from);
-    }
-
-    private void uponDisconnectMsgFail(ProtoMessage msg, Host host, short destProto,
-                                       Throwable throwable, int channelId) {
-        //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("Disconnect message {} to {} failed, reason: {}", msg, host, throwable);
-    }
-
     private void uponNeighbor(NeighborMessage msg, Host from, short sourceProto, int channelId) {
+        logger.debug("Received neighbor request {} from {}", msg, from);
         if (activeView.contains(from))
             return;
         if (!activeView.isFull() || msg.getPriority() == NeighborMessage.HIGH)
             addToActiveView(from);
     }
 
-    private void uponNeighborMsgFail(ProtoMessage msg, Host host, short destProto,
-                                     Throwable throwable, int channelId) {
-        logger.error("Neighbor message {} to {} failed, reason: {}", msg, host, throwable);
+    private void uponDisconnect(DisconnectMessage msg, Host from, short sourceProto, int channelId) {
+        logger.debug("Received disconnect {} from {}", msg, from);
+        closeConnection(from);
+        tryNewNeighbor();
+    }
+
+    private void uponShuffle(ShuffleMessage msg, Host from, short sourceProto, int channelId) {
+        logger.debug("Received shuffle {} from {}", msg, from);
+        int ttl = msg.getTTL() - 1;
+
+        if (msg.getTTL() == 0 || activeView.size() == 1) {
+            Set<Host> replySample = passiveView.getRandomSubset(msg.getSample().size());
+            pending.put(msg.getOrigin(), PendingConnContext.SHUFFLE_REPLY);
+            openConnection(msg.getOrigin());
+            sendMessage(new ShuffleReplyMessage(replySample), msg.getOrigin());
+            closeConnection(msg.getOrigin());
+            logger.debug("Shuffle accepted, waiting for connection to {}, sending {}", msg.getOrigin(), replySample);
+        } else {
+            Host forward = activeView.getRandomExcluding(from);
+            sendMessage(new ShuffleMessage(msg.getSample(), ttl, msg.getOrigin()), forward);
+            logger.debug("Shuffle forwarded to {}", forward);
+        }
+    }
+
+    private void uponShuffleReply(ShuffleReplyMessage msg, Host from, short sourceProto, int channelId) {
+        logger.debug("Received shuffle reply {} from {}", msg, from);
+        Set<Host> sample = msg.getSample();
+        sample.remove(self);
+    }
+
+
+    private void uponMsgFail(ProtoMessage msg, Host host, short destProto,
+                             Throwable throwable, int channelId) {
+        //If a message fails to be sent, for whatever reason, log the message and the reason
+        logger.error("Message {} to {} failed, reason: {}", msg, host, throwable);
     }
 
     /* -------------------------------- Timers ------------------------------------- */
+
+    private void uponShuffleTimer(ShuffleTimer timer, long timerId) {
+        if(currentSample == null) {
+            Set<Host> sample = new HashSet<>();
+            sample.addAll(activeView.getRandomSubset(this.shuffle_ka));
+            sample.addAll(passiveView.getRandomSubset(this.shuffle_kp));
+            sendMessage(new ShuffleMessage(sample, this.shuffle_ttl, self), activeView.getRandom());
+            logger.debug("Shuffle sample sent: {}", sample);
+        } else {
+            logger.debug("Shuffle timer skipped (waiting for shuffle reply)");
+        }
+    }
 
     /* -------------------------------- TCPChannel Events ------------------------- */
 
@@ -210,6 +253,10 @@ public class HyParView extends GenericProtocol {
                         NeighborMessage.LOW;
                 sendMessage(new NeighborMessage(priority), peer);
                 break;
+            case SHUFFLE_REPLY:
+                temporary.add(peer);
+                logger.debug("Temporary connection to {} established", peer);
+                break;
             default:
                 logger.error("Undisclosed pending connection context: {}", context);
         }
@@ -219,9 +266,13 @@ public class HyParView extends GenericProtocol {
         logger.debug("Connection to {} is down cause {}", event.getNode(), event.getCause());
 
         outConn.remove(event.getNode());
-        activeView.remove(event.getNode());
 
-        tryNewNeighbor();
+        //finished if it is a temporary conn
+        if(temporary.remove(event.getNode()))
+            return;
+
+        //else was an active view node
+        activeView.remove(event.getNode());
     }
 
 
@@ -241,6 +292,8 @@ public class HyParView extends GenericProtocol {
             case NEW_AV:
             case NEIGHBOR:
                 tryNewNeighbor();
+                break;
+            case SHUFFLE_REPLY:
                 break;
             default:
                 logger.error("Undisclosed pending connection context: {}", context);
@@ -293,8 +346,14 @@ public class HyParView extends GenericProtocol {
     }
 
     private void tryNewNeighbor() {
-        Host peer = passiveView.getRandom();
-        passiveView.remove(peer);
-        pending.put(peer, PendingConnContext.NEIGHBOR);
+        if (passiveView.size() != 0) {
+            Host peer = passiveView.getRandom();
+            passiveView.remove(peer);
+            pending.put(peer, PendingConnContext.NEIGHBOR);
+        }
+    }
+
+    private void addToPassiveConsidering(Set<Host> sentPeers){
+        
     }
 }

@@ -27,15 +27,15 @@ public class NeighborMessage extends ProtoMessage {
     @Override
     public String toString() {
         String priority = this.priority == HIGH ? "HIGH" : "LOW";
-        return "NeighborReqMessage{" +
+        return "NeighborMessage{" +
                 "priority=" + priority  +
                 '}';
     }
 
     public static ISerializer<NeighborMessage> serializer = new ISerializer<>() {
         @Override
-        public void serialize(NeighborMessage neighborReqMessage, ByteBuf byteBuf) throws IOException {
-            byteBuf.writeShort(neighborReqMessage.getPriority());
+        public void serialize(NeighborMessage neighborMessage, ByteBuf byteBuf) throws IOException {
+            byteBuf.writeShort(neighborMessage.getPriority());
         }
 
         @Override

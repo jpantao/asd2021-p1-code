@@ -1,9 +1,8 @@
 package protocols.membership.hyparview.utils;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Random;
-import java.util.Set;
+import network.data.Host;
+
+import java.util.*;
 
 public class PartialView <T>{
 
@@ -63,5 +62,20 @@ public class PartialView <T>{
         }
         return null;
     }
+
+    public T getRandomExcluding(T exclude){
+        T random;
+        do { //get random except from
+            random = getRandom();
+        } while (random.equals(exclude));
+        return random;
+    }
+
+    public Set<T> getRandomSubset(int subsetSize) {
+        List<T> list = new LinkedList<>(peers);
+        Collections.shuffle(list);
+        return new HashSet<>(list.subList(0, Math.min(subsetSize, list.size())));
+    }
+
 
 }
