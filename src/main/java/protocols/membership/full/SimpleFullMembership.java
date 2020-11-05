@@ -3,7 +3,6 @@ package protocols.membership.full;
 import babel.core.GenericProtocol;
 import babel.exceptions.HandlerRegistrationException;
 import babel.generic.ProtoMessage;
-import babel.handlers.ChannelEventHandler;
 import channel.tcp.TCPChannel;
 import channel.tcp.events.*;
 import network.data.Host;

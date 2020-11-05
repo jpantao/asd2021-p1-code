@@ -13,11 +13,11 @@ import protocols.membership.common.notifications.NeighbourDown;
 import protocols.membership.common.notifications.NeighbourUp;
 import protocols.membership.cyclon.messages.*;
 import protocols.membership.cyclon.timers.*;
-import protocols.membership.cyclon.utils.*;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.*;
+import java.util.Map.Entry;
 
 public class Cyclon extends GenericProtocol {
 
@@ -28,9 +28,9 @@ public class Cyclon extends GenericProtocol {
     public final static String PROTOCOL_NAME = "Cyclon";
 
     private final Host self; //Process address/port
-    private final Set<Peer> neighbours; //Set of neighbours
+    private final Map<Host, Integer> neighbours; //Set of neighbours
     private final Set<Host> pending; //Set of pending connections
-    private Set<Peer> sample; //Subset of neighbours sent in previous shuffle
+    private Map<Host, Integer> sample; //Subset of neighbours sent in previous shuffle
 
     //Configurable Parameters
     private final int N; //Maximum number of neighbours
@@ -53,7 +53,7 @@ public class Cyclon extends GenericProtocol {
         this.n = Integer.parseInt(props.getProperty("cln_sample_size", "3"));
         this.T = Integer.parseInt(props.getProperty("cln_shuffle_period", "2000"));
         this.self = self;
-        this.neighbours = new HashSet<>(N);
+        this.neighbours = new HashMap<>(N);
         this.pending = new HashSet<>(N);
         this.rnd = new Random();
 
@@ -69,11 +69,11 @@ public class Cyclon extends GenericProtocol {
         channelId = createChannel(TCPChannel.NAME, channelProps);
 
         /*---------------------- Register Message Serializers ---------------------- */
-        registerMessageSerializer(channelId, ShuffleMessage.MSG_ID, ShuffleMessage.serializer);
-        //Todo: Register shuffle reply serializer
+        registerMessageSerializer(channelId, ShuffleRequest.MSG_ID, ShuffleRequest.serializer);
+        registerMessageSerializer(channelId, ShuffleReply.MSG_ID, ShuffleReply.serializer);
         /*---------------------- Register Message Handlers -------------------------- */
-        registerMessageHandler(channelId, ShuffleMessage.MSG_ID, this::uponShuffleRequest, this::uponMsgFail);
-        //Todo: Create shuffle reply message handler
+        registerMessageHandler(channelId, ShuffleRequest.MSG_ID, this::uponShuffleRequest, this::uponMsgFail);
+        registerMessageHandler(channelId, ShuffleReply.MSG_ID, this::uponShuffleReply, this::uponMsgFail);
         /*--------------------- Register Timer Handlers ----------------------------- */
         registerTimerHandler(ShuffleTimer.TIMER_ID, this::uponShuffle);
         registerTimerHandler(MetricsTimer.TIMER_ID, this::uponProtocolMetrics);
@@ -85,7 +85,6 @@ public class Cyclon extends GenericProtocol {
         registerChannelEventHandler(channelId, ChannelMetrics.EVENT_ID, this::uponChannelMetrics);
     }
 
-
     @Override
     public void init(Properties props) throws HandlerRegistrationException, IOException {
         //Todo: Init
@@ -93,8 +92,8 @@ public class Cyclon extends GenericProtocol {
         triggerNotification(new ChannelCreated(channelId));
         if (props.containsKey("cln_contact")) {
             try {
-                String[] elems = props.getProperty("cln_contact").split(":");
-                Host contact = new Host(InetAddress.getByName(elems[0]), Short.parseShort(elems[1]));
+                String[] host_elements = props.getProperty("cln_contact").split(":");
+                Host contact = new Host(InetAddress.getByName(host_elements[0]), Short.parseShort(host_elements[1]));
                 pending.add(contact);
                 openConnection(contact);
             } catch (Exception e) {
@@ -111,34 +110,96 @@ public class Cyclon extends GenericProtocol {
 
     // Event triggered after shuffle timeout.
     private void uponShuffle(MetricsTimer timer, long timerId) {
-        Peer p = null;
-        for (Peer n : neighbours) {
-            n.setOlder();
-            if (p == null || p.compareTo(n) < 0)
-                p = n;
+        Entry<Host, Integer> oldest = null;
+        for (Entry<Host, Integer> peer : neighbours.entrySet()) {
+            int peer_age = peer.setValue(peer.getValue() + 1);
+            if (oldest == null || oldest.getValue() < peer_age)
+                oldest = peer;
         }
-        if (p != null) {
-            neighbours.remove(p);
+        if (oldest != null) {
+            Host oldest_host = oldest.getKey();
+            neighbours.remove(oldest_host);
             sample = getRandomSubset(neighbours, n);
-            sendMessage(new ShuffleMessage(sample), p.getHost());
+            sendMessage(new ShuffleRequest(sample), oldest_host);
         }
     }
 
     //Gets a random subset from the set of peers
-    private static Set<Peer> getRandomSubset(Set<Peer> origin, int subset_size) {
-        List<Peer> l = new LinkedList<>(origin);
+    private static Map<Host, Integer> getRandomSubset(Map<Host, Integer> origin, int subset_size) {
+        List<Entry<Host, Integer>> l = new LinkedList<>(origin.entrySet());
         Collections.shuffle(l);
-        return new HashSet<>(l.subList(0, Math.min(subset_size, l.size())));
+        l = l.subList(0, Math.min(subset_size, l.size()));
+        HashMap<Host, Integer> subMap = new HashMap<>(subset_size);
+        for (Entry<Host, Integer> entry : l)
+            subMap.put(entry.getKey(), entry.getValue());
+        return subMap;
     }
 
-    private void uponShuffleRequest(ProtoMessage shuffleRequest, Host host, short destProto, int channelId) {
-        //TODO: Shuffle request event
+    //Event triggered after a shuffle request is received.
+    private void uponShuffleRequest(ShuffleRequest shuffleRequest, Host host, short destProto, int channelId) {
+        Map<Host, Integer> tempSample = getRandomSubset(neighbours, n);
+        sendMessage(new ShuffleReply(tempSample), host);
+        mergeView(tempSample, shuffleRequest.getSample());
     }
 
-    private void mergeView(Set<Peer> mySample, Set<Peer> peerSample){
-        //TODO: Merge View procedure
+    //Event triggered after a shuffle reply is received.
+    private void uponShuffleReply(ShuffleReply shuffleReply, Host host, short destProto, int channelId) {
+        mergeView(sample, shuffleReply.getSample());
     }
 
+    //Merge view procedure.
+    private void mergeView(Map<Host, Integer> mySample, Map<Host, Integer> peerSample) {
+        for (Entry<Host, Integer> peer : peerSample.entrySet()) {
+            Integer my_age = neighbours.get(peer.getKey());
+            int peer_age = peer.getValue();
+            Host peer_host = peer.getKey();
+            if (my_age != null) {
+                if (my_age > peer_age)
+                    neighbours.put(peer.getKey(), peer_age);
+            } else if (neighbours.size() < N)
+                neighbours.put(peer_host, peer_age);
+            else {
+                Host host_to_remove = null;
+                List<Host> l = getCommonPeerHosts(mySample, neighbours);
+                if (l.isEmpty()) {
+                    host_to_remove = getRandomPeerHost(neighbours);
+                } else
+                    host_to_remove = l.get(rnd.nextInt(l.size()));
+                neighbours.remove(host_to_remove);
+                neighbours.put(peer_host, peer_age);
+            }
+        }
+    }
+
+    //Gets the list of the common peer's host from the specified collections.
+    private List<Host> getCommonPeerHosts(Map<Host, Integer> map1, Map<Host, Integer> map2) {
+        Set<Host> set1 = map1.keySet();
+        Set<Host> set2 = map2.keySet();
+        List<Host> l;
+        if (set1.size() >= set2.size()) {
+            l = new LinkedList<>(set1);
+            l.retainAll(set2);
+        } else {
+            l = new LinkedList<>(set2);
+            l.retainAll(set1);
+        }
+        return l;
+
+    }
+
+    //Gets a random peer's host from the specified collection.
+    private Host getRandomPeerHost(Map<Host, Integer> origin) {
+        int idx = rnd.nextInt(origin.size());
+        int i = 0;
+        for (Host h : origin.keySet()) {
+            if (i == idx)
+                return h;
+            i++;
+        }
+        return null;
+    }
+
+    //Event triggered when a shuffle request or shuffle reply is not delivered.
     private void uponMsgFail(ProtoMessage msg, Host host, short destProto, Throwable throwable, int channelId) {
         logger.error("Message {} to {} failed, reason: {}", msg, host, throwable);
         //TODO: Evaluate msg fail policy
@@ -150,7 +211,8 @@ public class Cyclon extends GenericProtocol {
     private void uponOutConnectionUp(OutConnectionUp event, int channelId) {
         Host host = event.getNode();
         pending.remove(host);
-        if (neighbours.add(new Peer(0, host))) {
+        if (!neighbours.containsKey(host)) {
+            neighbours.put(host, 0);
             logger.debug("Connection to {} is up", host);
             triggerNotification(new NeighbourUp(host));
         }
@@ -167,7 +229,7 @@ public class Cyclon extends GenericProtocol {
     //Event triggered after an established connection is disconnected.
     private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
         Host host = event.getNode();
-        neighbours.remove(new Peer(0, host));
+        neighbours.remove(host);
         logger.debug("Connection to {} is down cause {}", host, event.getCause());
         triggerNotification(new NeighbourDown(host));
         //TODO: Evaluate connection disconnect policy
