@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.apps.BroadcastApp;
 import protocols.broadcast.flood.FloodBroadcast;
+import protocols.membership.cyclon.Cyclon;
 import protocols.membership.full.SimpleFullMembership;
 import utils.InterfaceToIp;
 
@@ -38,7 +39,7 @@ public class Main {
 
         //The Host object is an address/port pair that represents a network host. It is used extensively in babel
         //It implements equals and hashCode, and also includes a serializer that makes it easy to use in network messages
-        Host myself =  new Host(InetAddress.getByName(props.getProperty("address")),
+        Host myself = new Host(InetAddress.getByName(props.getProperty("address")),
                 Integer.parseInt(props.getProperty("port")));
 
         logger.info("Hello, I am {}", myself);
@@ -48,7 +49,8 @@ public class Main {
         // Broadcast Protocol
         FloodBroadcast broadcast = new FloodBroadcast(props, myself);
         // Membership Protocol
-        SimpleFullMembership membership = new SimpleFullMembership(props, myself);
+        //SimpleFullMembership membership = new SimpleFullMembership(props, myself);
+        Cyclon membership = new Cyclon(props, myself);
 
         //Register applications in babel
         babel.registerProtocol(broadcastApp);

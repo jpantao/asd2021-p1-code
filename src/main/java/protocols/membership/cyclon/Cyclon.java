@@ -60,8 +60,8 @@ public class Cyclon extends GenericProtocol {
         /*--------------------Setup Channel Properties------------------------------- */
         Properties channelProps = new Properties();
         String channel_metrics_interval = props.getProperty("cln_channel_metrics_interval", "10000");
-        channelProps.setProperty(TCPChannel.ADDRESS_KEY, props.getProperty("cln_address"));
-        channelProps.setProperty(TCPChannel.PORT_KEY, props.getProperty("cln_port"));
+        channelProps.setProperty(TCPChannel.ADDRESS_KEY, props.getProperty("address"));
+        channelProps.setProperty(TCPChannel.PORT_KEY, props.getProperty("port"));
         channelProps.setProperty(TCPChannel.METRICS_INTERVAL_KEY, channel_metrics_interval);
         channelProps.setProperty(TCPChannel.HEARTBEAT_INTERVAL_KEY, "1000");
         channelProps.setProperty(TCPChannel.HEARTBEAT_TOLERANCE_KEY, "3000");
@@ -90,26 +90,26 @@ public class Cyclon extends GenericProtocol {
         //Todo: Init
         //  Start join event (N random walk with average path length, 4 or 5, steps), then shuffle(1) with node Q.
         triggerNotification(new ChannelCreated(channelId));
-        if (props.containsKey("cln_contact")) {
+        if (props.containsKey("contact")) {
             try {
-                String[] host_elements = props.getProperty("cln_contact").split(":");
+                String[] host_elements = props.getProperty("contact").split(":");
                 Host contact = new Host(InetAddress.getByName(host_elements[0]), Short.parseShort(host_elements[1]));
                 pending.add(contact);
                 openConnection(contact);
+                setupPeriodicTimer(new ShuffleTimer(), this.T, this.T);
+                int pMetricsInterval = Integer.parseInt(props.getProperty("cln_protocol_metrics_interval", "10000"));
+                if (pMetricsInterval > 0)
+                    setupPeriodicTimer(new MetricsTimer(), pMetricsInterval, pMetricsInterval);
             } catch (Exception e) {
-                logger.error("Invalid contact on configuration: '" + props.getProperty("cln_contact"));
+                logger.error("Invalid contact on configuration: '" + props.getProperty("contact"));
                 e.printStackTrace();
                 System.exit(-1);
             }
         }
-        setupPeriodicTimer(new ShuffleTimer(), this.T, this.T);
-        int pMetricsInterval = Integer.parseInt(props.getProperty("protocol_metrics_interval", "10000"));
-        if (pMetricsInterval > 0)
-            setupPeriodicTimer(new MetricsTimer(), pMetricsInterval, pMetricsInterval);
     }
 
     // Event triggered after shuffle timeout.
-    private void uponShuffle(MetricsTimer timer, long timerId) {
+    private void uponShuffle(ShuffleTimer timer, long timerId) {
         Entry<Host, Integer> oldest = null;
         for (Entry<Host, Integer> peer : neighbours.entrySet()) {
             int peer_age = peer.setValue(peer.getValue() + 1);
