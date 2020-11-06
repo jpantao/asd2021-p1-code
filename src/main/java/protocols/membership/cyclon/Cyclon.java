@@ -110,7 +110,7 @@ public class Cyclon extends GenericProtocol {
     // Event triggered after shuffle timeout.
     private void uponShuffle(ShuffleTimer timer, long timerId) {
         StringBuilder sb = new StringBuilder("+++++++++++++++++++++++++Shuffle timeout+++++++++++++++++++++++\n");
-        sb.append("\nNeighbours before: ").append(neighbours);
+        sb.append("Neighbours before: ").append(neighbours);
         Entry<Host, Integer> oldest = null;
         for (Entry<Host, Integer> peer : neighbours.entrySet()) {
             int peer_age = peer.setValue(peer.getValue() + 1);
@@ -119,12 +119,12 @@ public class Cyclon extends GenericProtocol {
         }
         if (oldest != null) {
             Host oldest_host = oldest.getKey();
-            Map<Host, Integer> aux = neighbours;
-            aux.remove(oldest_host);
-            sample = getRandomSubset(aux, n);
-            aux = sample;
-            aux.put(self, 0);
-            String debug = queueMessage(new ShuffleRequest(aux), oldest_host);
+            Map<Host, Integer> aux1 = neighbours;
+            aux1.remove(oldest_host);
+            sample = getRandomSubset(aux1, n);
+            Map<Host, Integer> aux2 = sample;
+            aux2.put(self, 0);
+            String debug = queueMessage(new ShuffleRequest(aux2), oldest_host);
             sb.append(debug);
         }
         sb.append("\nNeighbours after: ").append(neighbours);
