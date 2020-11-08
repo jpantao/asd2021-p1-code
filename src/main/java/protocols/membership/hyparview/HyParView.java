@@ -23,7 +23,7 @@ public class HyParView extends GenericProtocol {
 
     public enum PendingConnContext {
         JOIN,
-        NEW_AV,
+        AVNODE,
         NEIGHBOR,
         SHUFFLE_REPLY,
     }
@@ -243,7 +243,7 @@ public class HyParView extends GenericProtocol {
                 addToActiveView(peer);
                 sendMessage(new JoinMessage(), peer);
                 break;
-            case NEW_AV:
+            case AVNODE:
                 addToActiveView(peer);
                 sendMessage(new NeighborMessage(NeighborMessage.HIGH), peer);
                 break;
@@ -325,7 +325,7 @@ public class HyParView extends GenericProtocol {
                 logger.debug("Added {} to the active view", newNode);
             }
         } else {
-            pending.put(newNode, PendingConnContext.NEW_AV);
+            pending.put(newNode, PendingConnContext.AVNODE);
             openConnection(newNode);
         }
     }
@@ -349,22 +349,28 @@ public class HyParView extends GenericProtocol {
     }
 
     private void addToPassiveConsidering(Set<Host> sample, Set<Host> sentPeers){
-        int removed = 0;
 
-        for(Host h : sentPeers){
-            if(passiveView.remove(h))
-                removed ++;
-            if (removed == sample.size() || passiveView.size() == 0)
-                break;
+        // add to the passive view if it has space
+        while (!sample.isEmpty()){
+            Optional<Host> op = sample.stream().findFirst();
+
+            Host toAdd = op.get();
+            sample.remove(toAdd);
+
+            if (passiveView.isFull()) {
+
+                if (sentPeers.isEmpty()) {
+                    passiveView.remove(passiveView.getRandom());
+                } else {
+                    op = sentPeers.stream().findFirst();
+                    Host toRem = op.get();
+                    sentPeers.remove(toRem);
+                    passiveView.remove(toRem);
+                }
+
+            }
+            passiveView.add(toAdd);
         }
-
-        while (removed < sample.size() && passiveView.size() > 0){
-            passiveView.remove(passiveView.getRandom());
-            removed++;
-        }
-
-        for(Host h : sample)
-            passiveView.add(h);
 
     }
 }
