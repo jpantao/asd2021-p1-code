@@ -82,11 +82,11 @@ public class PlumTreeBroadcast extends GenericProtocol {
     }
 
     private void lazyPush(UUID msgID,Host sender, short sourceProto, int round ) {
-        logger.debug("PlumTree Lazy push:");
+        //logger.debug("PlumTree Lazy push:");
         for(Host l: lazyPushPeers) {
             if (!l.equals(sender)) {
                 lazyQueue.add(new IHaveMessage(msgID,myself,l,sourceProto,round));
-                logger.debug("Adding iHave");
+                //logger.debug("Adding iHave");
             }
         }
         dispatch();
@@ -105,8 +105,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
     }
 
     private void uponBroadcastRequest(BroadcastRequest request, short sourceProto) {
-        logger.debug("PlumTree upon Broadcast Request: " + request.getMsgId());
-        logger.info("\n-------------------------------------------------------------------\n"
+        logger.debug("\n-------------------------------------------------------------------\n"
                 + "UponBroadcastRequest " + request.getMsgId() + "\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString() +
@@ -120,8 +119,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
     }
 
     private void uponGossipMessage(GossipMessage msg, Host from, short sourceProto, int channelId) {
-        //logger.debug("Received {} from {}", msg, from);
-        logger.info("\n-------------------------------------------------------------------\n"
+        logger.debug("\n-------------------------------------------------------------------\n"
                 + "UponGossipMessage " + msg.getMid() + " From: " + from + "\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
@@ -132,7 +130,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
             if(gossipTimers.containsKey(msg.getMid())) {
                 long timerID = gossipTimers.get(msg.getMid());
                 gossipTimers.remove(msg.getMid());
-                logger.info("Cancelling timer");
+                logger.debug("Cancelling timer");
                 cancelTimer(timerID);
             }
             msg.setRound();
@@ -149,9 +147,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
     }
 
     private void uponIHaveMessage(IHaveMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("Upon IHave: " + msg.getMid());
-
-        logger.info("\n-------------------------------------------------------------------\n"
+        logger.debug("\n-------------------------------------------------------------------\n"
                 + "UponIHaveMessage " + msg.getMid() + " From: " + from + "\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
@@ -166,8 +162,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
     }
 
     private void uponGossipTimer(GossipTimer gossipTimer, long timerId) {
-        logger.debug("PlumTree upon Gossip Timer: ");
-        logger.info("\n-------------------------------------------------------------------\n"
+        logger.debug("\n-------------------------------------------------------------------\n"
                 + "UponGossipTimer " + gossipTimer.getMsgID() +  "\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
@@ -191,25 +186,24 @@ public class PlumTreeBroadcast extends GenericProtocol {
     }
 
     private void uponPruneMessage(PruneMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("PlumTree upon Prune Message: " + msg.getId());
-        logger.info("\n-------------------------------------------------------------------\n"
+        logger.debug("\n-------------------------------------------------------------------\n"
                 + "UponPruneMessage " + msg.getId() + " From: " + from +"\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
                 + "\n-------------------------------------------------------------------");
         eagerPushPeers.remove(from);
-        lazyPushPeers.remove(from);
+        lazyPushPeers.add(from);
     }
 
     private void uponGraftMessage(GraftMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("PlumTree upon Graft Message:");
-        logger.info("\n-------------------------------------------------------------------\n"
+        logger.debug("\n-------------------------------------------------------------------\n"
                 + "UponGraftMessage " + msg.getMid() + " From: " + from + "\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
                 + "\n-------------------------------------------------------------------");
         eagerPushPeers.add(from);
         lazyPushPeers.remove(from);
+
         if(received.containsKey(msg.getMid()))
             sendMessage(received.get(msg.getMid()),from);
     }
@@ -231,19 +225,36 @@ public class PlumTreeBroadcast extends GenericProtocol {
         }
     }
 
-    private void uponGossipFail(ProtoMessage msg, Host host, short destProto,
+    private void uponGossipFail(GossipMessage msg, Host host, short destProto,
                                 Throwable throwable, int channelId) {
+        logger.debug("\nGossip fail " + msg.getMid() + " myself: " + myself
+                + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
+                " lazyPushPeers: " + lazyPushPeers.toString());
+        /*if(lazyPushPeers.size() == 0)
+            sendMessage(msg,host);*/
     }
 
-    private void uponIHaveMessageFail(ProtoMessage msg, Host host, short destProto,
+    private void uponIHaveMessageFail(IHaveMessage msg, Host host, short destProto,
                                       Throwable throwable, int channelId) {
+        logger.debug("\nIHave Message fail " + msg.getMid() + " myself: " + myself
+                + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
+                " lazyPushPeers: " + lazyPushPeers.toString());
+        //sendMessage(msg,host);
     }
 
-    private void uponPruneMessageFail(ProtoMessage msg, Host host, short destProto,
+    private void uponPruneMessageFail(PruneMessage msg, Host host, short destProto,
                                       Throwable throwable, int channelId) {
+        logger.debug("\nPrune Message fail " + " myself: " + myself
+                + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
+                " lazyPushPeers: " + lazyPushPeers.toString());
+        //sendMessage(msg,host);
     }
 
-    private void uponGraftMessageFail(ProtoMessage msg, Host host, short destProto,
+    private void uponGraftMessageFail(GraftMessage msg, Host host, short destProto,
                                       Throwable throwable, int channelId) {
+        logger.debug("\nGraft Message fail " + msg.getMid() + " myself: " + myself
+                + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
+                " lazyPushPeers: " + lazyPushPeers.toString());
+        //sendMessage(msg,host);
     }
 }
