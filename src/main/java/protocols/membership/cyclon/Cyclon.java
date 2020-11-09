@@ -184,7 +184,6 @@ public class Cyclon extends GenericProtocol {
         }
         if (oldest != null) {
             Host oldest_host = oldest.getKey();
-
             Map<Host, Integer> aux1 = neighbours;
             aux1.remove(oldest_host);
             sample = getRandomSubset(aux1, n);
