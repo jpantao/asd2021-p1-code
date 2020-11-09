@@ -29,14 +29,16 @@ public class Cyclon extends GenericProtocol {
 
     private final Host self; //Process address/port
     private final Map<Host, Integer> neighbours; //Set of neighbours
-    private final Map<Host, Integer> pendingConnections; //Set of pending messages to each host
-    private final Map<Host, ProtoMessage> pendingMsgs; //Set of pending connections to new neighbours
+    private final Set<Host> upConnections; //Set of established connections
+    private final Map<Host, ProtoMessage> pendingMsgs; //Set of pending messages to new neighbours
+    private final Map<Host, Integer> pendingConnections; //Set of pending connections to new neighbours
     private Map<Host, Integer> sample; //Subset of neighbours sent in previous shuffle
 
     //Configurable Parameters
     private final int N; //Maximum number of neighbours
     private final int n; //Maximum size of the sample set
     private final int T; //Shuffle period, in milliseconds
+    private final int L; //Expected average path length, in number of hops
 
     //Utils
     private final Random rnd;
@@ -53,10 +55,12 @@ public class Cyclon extends GenericProtocol {
         this.N = Integer.parseInt(props.getProperty("cln_neigh_size", "6"));
         this.n = Integer.parseInt(props.getProperty("cln_sample_size", "3"));
         this.T = Integer.parseInt(props.getProperty("cln_shuffle_period", "2000"));
+        this.L = Integer.parseInt(props.getProperty("cln_expected_average_path_length", "4"));
         this.self = self;
         this.neighbours = new HashMap<>(N);
-        this.pendingConnections = new HashMap<>(N);
+        this.upConnections = new HashSet<>(N);
         this.pendingMsgs = new HashMap<>(N);
+        this.pendingConnections = new HashMap<>(N);
         this.rnd = new Random();
 
         /*--------------------Setup Channel Properties------------------------------- */
@@ -71,30 +75,37 @@ public class Cyclon extends GenericProtocol {
         channelId = createChannel(TCPChannel.NAME, channelProps);
 
         /*---------------------- Register Message Serializers ---------------------- */
+        registerMessageSerializer(channelId, JoinRequest.MSG_ID, JoinRequest.serializer);
+        registerMessageSerializer(channelId, JoinReply.MSG_ID, JoinReply.serializer);
         registerMessageSerializer(channelId, ShuffleRequest.MSG_ID, ShuffleRequest.serializer);
         registerMessageSerializer(channelId, ShuffleReply.MSG_ID, ShuffleReply.serializer);
         /*---------------------- Register Message Handlers -------------------------- */
-        registerMessageHandler(channelId, ShuffleRequest.MSG_ID, this::uponShuffleRequest, this::uponMsgFail);
-        registerMessageHandler(channelId, ShuffleReply.MSG_ID, this::uponShuffleReply, this::uponMsgFail);
+        registerMessageHandler(channelId, JoinRequest.MSG_ID, this::uponJoinRequest, this::uponJoinRequestFail);
+        registerMessageHandler(channelId, JoinReply.MSG_ID, this::uponJoinReply, this::uponJoinReplyFail);
+        registerMessageHandler(channelId, ShuffleRequest.MSG_ID, this::uponShuffleRequest, this::uponShuffleRequestFail);
+        registerMessageHandler(channelId, ShuffleReply.MSG_ID, this::uponShuffleReply, this::uponShuffleReplyFail);
         /*--------------------- Register Timer Handlers ----------------------------- */
         registerTimerHandler(ShuffleTimer.TIMER_ID, this::uponShuffle);
         registerTimerHandler(MetricsTimer.TIMER_ID, this::uponProtocolMetrics);
-
         /*-------------------- Register Channel Events ------------------------------- */
-        registerChannelEventHandler(channelId, OutConnectionDown.EVENT_ID, this::uponOutConnectionDown);
+        registerChannelEventHandler(channelId, OutConnectionDown.EVENT_ID, this::uponUpConnectionDown);
         registerChannelEventHandler(channelId, OutConnectionFailed.EVENT_ID, this::uponOutConnectionFailed);
         registerChannelEventHandler(channelId, OutConnectionUp.EVENT_ID, this::uponOutConnectionUp);
         registerChannelEventHandler(channelId, ChannelMetrics.EVENT_ID, this::uponChannelMetrics);
     }
 
     @Override
-    public void init(Properties props) throws HandlerRegistrationException, IOException {
+    public void init(Properties props) {
+        //logger.info("_________________________Init__________________________________");
         triggerNotification(new ChannelCreated(channelId));
         if (props.containsKey("contact")) {
             try {
                 String[] host_elements = props.getProperty("contact").split(":");
                 Host contact = new Host(InetAddress.getByName(host_elements[0]), Short.parseShort(host_elements[1]));
-                queueConnection(contact, 0); //TODO: join (N random walk with average path length, 4 or 5, steps), then shuffle(1) with node Q.
+                //logger.info("Contact: {}", contact);
+                queueConnection(contact, 0);
+                queueMessage(new JoinRequest(self, L), contact);
+                openConnection(contact);
                 setupPeriodicTimer(new ShuffleTimer(), this.T, this.T);
                 int pMetricsInterval = Integer.parseInt(props.getProperty("cln_protocol_metrics_interval", "10000"));
                 if (pMetricsInterval > 0)
@@ -105,12 +116,66 @@ public class Cyclon extends GenericProtocol {
                 System.exit(-1);
             }
         }
+        //logger.info("_______________________________________________________________");
+    }
+
+    private void uponJoinRequest(JoinRequest joinRequest, Host host, short destProto, int channelId) {
+        //logger.info("#########################JOIN REQUEST##########################");
+        joinRequest.decreaseTtl();
+        int nNeighbours = neighbours.keySet().size();
+        Host newHost = joinRequest.getNewHost();
+        if (nNeighbours > 0) {
+            if (joinRequest.getTtl() == L) {
+                Map<Host, Integer> rndSubset = getRandomSubset(neighbours, N);
+                //logger.info("Random subset: {}", rndSubset);
+                for (Entry<Host, Integer> rndPeer : rndSubset.entrySet())
+                    dispatchMessage(joinRequest, rndPeer.getKey());
+            } else {
+                Entry<Host, Integer> rndPeer = Objects.requireNonNull(getRandomPeer(neighbours),
+                        "Neighbour set is not empty so there has to be a peer in it.");
+                for (int i = 0; i < nNeighbours && rndPeer.getKey() != host; i++) {
+                    rndPeer = Objects.requireNonNull(getRandomPeer(neighbours),
+                            "Neighbour set is not empty so there has to be a peer in it.");
+                }
+                //logger.info("Random peer: {}", rndPeer);
+                Host rndHost = rndPeer.getKey();
+                int rndAge = rndPeer.getValue();
+                if (joinRequest.getTtl() > 0 && rndHost != host) {
+                    dispatchMessage(joinRequest, rndHost);
+                } else {
+                    removeNeighbour(rndHost);
+                    closeConnection(rndHost);
+                    queueConnection(newHost, 0);
+                    queueMessage(new JoinReply(rndHost, rndAge), newHost);
+                    openConnection(host);
+                }
+            }
+        } else {
+            queueConnection(newHost, 0);
+            queueMessage(new JoinReply(self, 0), newHost);
+            openConnection(host);
+        }
+        //logger.info("###############################################################");
+    }
+
+    private void uponJoinReply(JoinReply joinReply, Host host, short destProto, int channelId) {
+        //logger.info("#########################JOIN REPLY############################");
+        Host newHost = joinReply.getNeighbour();
+        int newAge = joinReply.getAge();
+        Integer oldAge = neighbours.get(newHost);
+        if (oldAge != null && oldAge > newAge)
+            neighbours.put(newHost, newAge);
+        else {
+            queueConnection(newHost, newAge);
+            openConnection(newHost);
+        }
+        //logger.info("###############################################################");
     }
 
     // Event triggered after shuffle timeout.
     private void uponShuffle(ShuffleTimer timer, long timerId) {
-        StringBuilder sb = new StringBuilder("+++++++++++++++++++++++++Shuffle timeout+++++++++++++++++++++++\n");
-        sb.append("Neighbours before: ").append(neighbours);
+        //logger.info("+++++++++++++++++++++++++Shuffle timeout+++++++++++++++++++++++");
+        //logger.info("Neighbours before: {}", neighbours);
         Entry<Host, Integer> oldest = null;
         for (Entry<Host, Integer> peer : neighbours.entrySet()) {
             int peer_age = peer.setValue(peer.getValue() + 1);
@@ -119,70 +184,85 @@ public class Cyclon extends GenericProtocol {
         }
         if (oldest != null) {
             Host oldest_host = oldest.getKey();
-            Map<Host, Integer> aux1 = neighbours;
-            aux1.remove(oldest_host);
-            sample = getRandomSubset(aux1, n);
-            Map<Host, Integer> aux2 = sample;
-            aux2.put(self, 0);
-            String debug = queueMessage(new ShuffleRequest(aux2), oldest_host);
-            sb.append(debug);
+            removeNeighbour(oldest_host);
+            sample = getRandomSubset(neighbours, n);
+            Map<Host, Integer> aux = sample;
+            aux.put(self, 0);
+            dispatchMessage(new ShuffleRequest(aux), oldest_host);
         }
-        sb.append("\nNeighbours after: ").append(neighbours);
-        logger.info(sb);
-    }
-
-    private String queueConnection(Host host, Integer age) {
-        String debug = "\nQueued new connection to " + host.toString() + " with age " + age.toString();
-        pendingConnections.put(host, age);
-        openConnection(host);
-        return debug;
-    }
-
-    private String queueMessage(ProtoMessage msg, Host host) {
-        String debug = "\nQueued msg " + msg.toString() + "to " + host.toString();
-        pendingMsgs.put(host, msg);
-        openConnection(host);
-        return debug;
+        //logger.info("Neighbours after: {}", neighbours);
+        //logger.info("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
     }
 
     //Event triggered after a shuffle request is received.
     private void uponShuffleRequest(ShuffleRequest shuffleRequest, Host host, short destProto, int channelId) {
-        StringBuilder sb = new StringBuilder("#########################SHUFFLE REQUEST#######################\n");
-        sb.append("From: ").append(host);
+        //logger.info("#########################SHUFFLE REQUEST#######################");
+        //logger.info("From: {}", host);
         Map<Host, Integer> receivedSample = shuffleRequest.getSample();
         Map<Host, Integer> tempSample = getRandomSubset(neighbours, n);
-        sb.append("\nReceived Sample:").append(receivedSample);
-        sb.append("\nTemporary Sample: ").append(tempSample);
-        String debug = queueMessage(new ShuffleReply(tempSample), host);
-        sb.append(debug);
         mergeView(tempSample, receivedSample);
-        sb.append("\nNeighbours: ").append(neighbours);
-        logger.info(sb);
+        //logger.info("Received Sample: {}", receivedSample);
+        //logger.info("Temporary Sample: {}", tempSample);
+        tempSample.remove(host);
+        if (tempSample.isEmpty())
+            tempSample.put(self, 0);
+        dispatchMessage(new ShuffleReply(tempSample), host);
+        //logger.info("Neighbours: {}", neighbours);
+        //logger.info("###############################################################");
     }
 
     //Event triggered after a shuffle reply is received.
     private void uponShuffleReply(ShuffleReply shuffleReply, Host host, short destProto, int channelId) {
-        StringBuilder sb = new StringBuilder("#########################SHUFFLE REPLY########################\n");
-        sb.append("From: ").append(host);
-        sb.append("\nReceived Sample:").append(shuffleReply.getSample());
-        sb.append("\nSample: ").append(sample);
-        logger.info(sb);
+        //logger.info("#########################SHUFFLE REPLY#########################");
+        //logger.info("From: {}", host);
         closeConnection(host);
-        mergeView(sample, shuffleReply.getSample());
+        Map<Host, Integer> receivedSample = shuffleReply.getSample();
+        //logger.info("Received Sample: {}", receivedSample);
+        //logger.info("Sample: {}", sample);
+        mergeView(sample, receivedSample);
+        //logger.info("###############################################################");
     }
 
-    //Event triggered when a shuffle request or shuffle reply is not delivered.
-    private void uponMsgFail(ProtoMessage msg, Host host, short destProto, Throwable throwable, int channelId) {
-        StringBuilder sb = new StringBuilder("-------------------------MSG FAIL------------------------------\n");
-        sb.append("Message ").append(msg).append(" to ").append(host).append(" failed, reason: ").append(throwable);
-        logger.info(sb);
-        //TODO: Evaluate msg fail policy
+    //Event triggered when a shuffle request is not delivered.
+    private void uponShuffleRequestFail(ShuffleRequest shuffleRequest, Host host, short destProto, Throwable throwable, int channelId) {
+        //logger.info("#########################SHUFFLE REQUEST FAIL##################");
+        //logger.info("Failed to deliver {} to {}, reason: {}", shuffleRequest, host, throwable);
+        pendingMsgs.remove(host);
+        upConnections.remove(host);
+        //logger.info("###############################################################");
+    }
+
+    //Event triggered when a shuffle reply is not delivered.
+    private void uponShuffleReplyFail(ShuffleReply shuffleReply, Host host, short destProto, Throwable throwable, int channelId) {
+        //logger.info("#########################SHUFFLE REPLY FAIL####################");
+        //logger.info("Failed to deliver {} to {}, reason: {}", shuffleReply, host, throwable);
+        pendingMsgs.remove(host);
+        upConnections.remove(host);
+        //logger.info("###############################################################");
+    }
+
+    //Event triggered when a join request is not delivered.
+    private void uponJoinRequestFail(JoinRequest joinRequest, Host host, short destProto, Throwable throwable, int channelId) {
+        //logger.info("#########################JOIN REQUEST FAIL#####################");
+        //logger.info("Failed to deliver {} to {}, reason: {}", joinRequest, host, throwable);
+        pendingMsgs.remove(host);
+        upConnections.remove(host);
+        //logger.info("###############################################################");
+    }
+
+    //Event triggered when a join reply is not delivered.
+    private void uponJoinReplyFail(JoinReply joinReply, Host host, short destProto, Throwable throwable, int channelId) {
+        //logger.info("#########################JOIN REPLY FAIL#######################");
+        //logger.info("Failed to deliver {} to {}, reason: {}", joinReply, host, throwable);
+        pendingMsgs.remove(host);
+        upConnections.remove(host);
+        //logger.info("###############################################################");
     }
 
     //Merge view procedure.
     private void mergeView(Map<Host, Integer> mySample, Map<Host, Integer> peerSample) {
-        StringBuilder sb = new StringBuilder(".-.-.-.-.-.-.-.-.-.-.-.-.MERGE VIEW.-.-.-.-.-.-.-.-.-.-.-.-.-.-\n");
-        sb.append("\nNeighbours before: ").append(neighbours);
+        //logger.info(".-.-.-.-.-.-.-.-.-.-.-.-.MERGE VIEW.-.-.-.-.-.-.-.-.-.-.-.-.-.-");
+        //logger.info("Neighbours before: {}", neighbours);
         for (Entry<Host, Integer> peer : peerSample.entrySet()) {
             Integer my_age = neighbours.get(peer.getKey());
             int peer_age = peer.getValue();
@@ -193,19 +273,55 @@ public class Cyclon extends GenericProtocol {
             } else {
                 if (neighbours.size() >= N) {
                     Host host_to_remove;
-                    List<Host> l = getCommonPeerHosts(mySample, neighbours);
+                    List<Entry<Host, Integer>> l = getCommonPeer(mySample, neighbours);
                     if (l.isEmpty()) {
-                        host_to_remove = getRandomPeerHost(neighbours);
+                        Entry<Host, Integer> rndPeer = getRandomPeer(neighbours);
+                        assert rndPeer != null : "Neighbour set is not empty so there has to be a peer in it.";
+                        host_to_remove = rndPeer.getKey();
                     } else
-                        host_to_remove = l.get(rnd.nextInt(l.size()));
+                        host_to_remove = l.get(rnd.nextInt(l.size())).getKey();
+                    removeNeighbour(host_to_remove);
                     closeConnection(host_to_remove);
                 }
-                String debug = queueConnection(peer_host, peer_age);
-                sb.append(debug);
+                queueConnection(peer_host, peer_age);
+                openConnection(peer_host);
             }
         }
-        sb.append("\nNeighbours after: ").append(neighbours);
-        logger.info(sb);
+        //logger.info("Neighbours after: {}", neighbours);
+        //logger.info(".-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.");
+    }
+
+    private void removeNeighbour(Host host) {
+        neighbours.remove(host);
+        triggerNotification(new NeighbourDown(host));
+    }
+
+    private void addNeighbour(Host host, Integer age) {
+        neighbours.put(Objects.requireNonNull(host, "No null hosts"),
+                Objects.requireNonNull(age, "No null ages"));
+        triggerNotification(new NeighbourUp(host));
+    }
+
+    private void queueConnection(Host host, Integer age) {
+        pendingConnections.put(Objects.requireNonNull(host, "No null hosts"),
+                Objects.requireNonNull(age, "No null ages"));
+        //logger.info("Queued connection to {} with age {}", host, age);
+    }
+
+    private void queueMessage(ProtoMessage msg, Host host) {
+        pendingMsgs.put(Objects.requireNonNull(host, "No null hosts"),
+                Objects.requireNonNull(msg, "No null messages"));
+        //logger.info("Queued msg {} to {}", msg, host);
+    }
+
+    private void dispatchMessage(ProtoMessage msg, Host host) {
+        if (upConnections.contains(host)) {
+            //logger.info("Sent msg {} to {}", msg, host);
+            sendMessage(msg, host);
+        } else {
+            queueMessage(msg, host);
+            openConnection(host);
+        }
     }
 
     //Gets a random subset from the set of peers
@@ -219,11 +335,11 @@ public class Cyclon extends GenericProtocol {
         return subMap;
     }
 
-    //Gets the list of the common peer's host from the specified collections.
-    private List<Host> getCommonPeerHosts(Map<Host, Integer> map1, Map<Host, Integer> map2) {
-        Set<Host> set1 = map1.keySet();
-        Set<Host> set2 = map2.keySet();
-        List<Host> l;
+    //Gets the list of the common peer from the specified collections.
+    private List<Entry<Host, Integer>> getCommonPeer(Map<Host, Integer> map1, Map<Host, Integer> map2) {
+        Set<Entry<Host, Integer>> set1 = map1.entrySet();
+        Set<Entry<Host, Integer>> set2 = map2.entrySet();
+        List<Entry<Host, Integer>> l;
         if (set1.size() >= set2.size()) {
             l = new LinkedList<>(set1);
             l.retainAll(set2);
@@ -235,13 +351,14 @@ public class Cyclon extends GenericProtocol {
 
     }
 
-    //Gets a random peer's host from the specified collection.
-    private Host getRandomPeerHost(Map<Host, Integer> origin) {
+    //Gets a random peer from the specified collection.
+    private Entry<Host, Integer> getRandomPeer(Map<Host, Integer> origin) {
         int idx = rnd.nextInt(origin.size());
         int i = 0;
-        for (Host h : origin.keySet()) {
-            if (i == idx)
+        for (Entry<Host, Integer> h : origin.entrySet()) {
+            if (i == idx) {
                 return h;
+            }
             i++;
         }
         return null;
@@ -252,76 +369,60 @@ public class Cyclon extends GenericProtocol {
     //Event triggered after a connection is successfully established.
     private void uponOutConnectionUp(OutConnectionUp event, int channelId) {
         Host host = event.getNode();
-        StringBuilder sb = new StringBuilder("--------------------------CONNECTION UP------------------------\n");
-        sb.append("Successful connection with ").append(host);
-        Integer age = pendingConnections.get(host);
-        if (age != null) {
-            addNeighbour(host, age);
-            sb.append("\nAdded ").append(host).append(" to neighbours with age ").append(age);
-        }
-        ProtoMessage pending_msg = pendingMsgs.get(host);
+        //logger.info("--------------------------CONNECTION UP------------------------");
+        //logger.info("Successful connection with {}", host);
+        Integer pendingNeighbourAge = pendingConnections.remove(host);
+        if (pendingNeighbourAge != null)
+            addNeighbour(host, pendingNeighbourAge);
+        ProtoMessage pending_msg = pendingMsgs.remove(host);
         if (pending_msg != null) {
             sendMessage(pending_msg, host);
-            pendingMsgs.remove(host);
-            sb.append("\nSent ").append(pending_msg).append(" to ").append(host);
+            //logger.info("Sent {} to {}", pending_msg, host);
         }
-        logger.info(sb);
-    }
-
-    private void removeNeighbour(Host host) {
-        pendingConnections.remove(host);
-        pendingMsgs.remove(host);
-        neighbours.remove(host);
-        triggerNotification(new NeighbourDown(host));
-    }
-
-    private void addNeighbour(Host host, Integer age) {
-        neighbours.put(host, age);
-        pendingConnections.remove(host);
-        triggerNotification(new NeighbourUp(host));
+        upConnections.add(host);
+        //logger.info("---------------------------------------------------------------");
     }
 
     //Event triggered after a connection fails to be established.
     private void uponOutConnectionFailed(OutConnectionFailed<ProtoMessage> event, int channelId) {
-        //TODO: Evaluate connection fail policy
         Host host = event.getNode();
-        StringBuilder sb = new StringBuilder("-------------------------CONNECTION FAILED---------------------\n");
-        sb.append("Connection to ").append(host).append(" failed.");
-        removeNeighbour(host);
-        sb.append("\nRemoved ").append(host).append(" from neighbours");
-        logger.info(sb);
+        //logger.info("-------------------------CONNECTION FAILED---------------------");
+        //logger.info("Attempt at connecting with {} failed.", host);
+        pendingConnections.remove(host);
+        pendingMsgs.remove(host);
+        //logger.info("---------------------------------------------------------------");
     }
 
     //Event triggered after an established connection is disconnected.
-    private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
+    private void uponUpConnectionDown(OutConnectionDown event, int channelId) {
         //TODO: Evaluate connection disconnect policy
         Host host = event.getNode();
-        StringBuilder sb = new StringBuilder("-------------------------CONNECTION DOWN-----------------------\n");
-        sb.append("Connection to ").append(host).append(" is down.");
-        removeNeighbour(host);
-        sb.append("\nRemoved ").append(host).append(" from neighbours");
-        logger.info(sb);
+        //logger.info("-------------------------CONNECTION DOWN-----------------------");
+        //logger.info("Connection with {} is down.", host);
+        upConnections.remove(host);
+        pendingMsgs.remove(host);
+        //logger.info("---------------------------------------------------------------");
     }
+
 
     /* --------------------------------- Metrics ---------------------------- */
 
     // Event triggered after info timeout.
     private void uponProtocolMetrics(MetricsTimer timer, long timerId) {
-        //Todo: Protocol Metrics event.
-        StringBuilder sb = new StringBuilder("-------------------------MEMBERSHIP METRICS--------------------\n");
+        StringBuilder sb = new StringBuilder("-------------------------MEMBERSHIP METRICS--------------------").append(self).append("\n");
         sb.append("Neighbours: ").append(neighbours).append("\n");
-        sb.append("Pending Connections: ").append(pendingConnections).append("\n");
-        sb.append("Pending Msgs: ").append(pendingConnections).append("\n");
+        sb.append("Up connections: ").append(upConnections).append("\n");
+        sb.append("Pending Msgs: ").append(pendingMsgs).append("\n");
         sb.append("Neighbours: ").append(neighbours).append("\n");
         sb.append("Sample: ").append(sample).append("\n");
         sb.append(getMetrics());
+        sb.append("---------------------------------------------------------------");
         logger.info(sb);
     }
 
     // Channel event triggered after metrics timeout.
     private void uponChannelMetrics(ChannelMetrics event, int channelId) {
-        //Todo: Channel Metrics event.
-        StringBuilder sb = new StringBuilder("\"-------------------------CHANNEL METRICS-----------------------\n");
+        StringBuilder sb = new StringBuilder("\"-------------------------CHANNEL METRICS-----------------------").append(self).append("\n");
         sb.append("In channels:\n");
         event.getInConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s)\n",
                 c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
@@ -337,6 +438,7 @@ public class Cyclon extends GenericProtocol {
                 c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
                 c.getReceivedAppBytes())));
         sb.setLength(sb.length() - 1);
+        sb.append("---------------------------------------------------------------");
         logger.info(sb);
     }
 }
