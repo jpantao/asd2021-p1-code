@@ -396,7 +396,6 @@ public class Cyclon extends GenericProtocol {
 
     //Event triggered after an established connection is disconnected.
     private void uponUpConnectionDown(OutConnectionDown event, int channelId) {
-        //TODO: Evaluate connection disconnect policy
         Host host = event.getNode();
         //logger.info("-------------------------CONNECTION DOWN-----------------------");
         //logger.info("Connection with {} is down.", host);
