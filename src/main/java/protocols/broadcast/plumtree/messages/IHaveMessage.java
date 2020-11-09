@@ -14,6 +14,7 @@ public class IHaveMessage extends ProtoMessage {
 
     private final UUID mid;
     private final Host sender;
+    private final Host receiver;
     private int round;
 
 
@@ -26,8 +27,9 @@ public class IHaveMessage extends ProtoMessage {
                 '}';
     }
 
-    public IHaveMessage(UUID mid, Host sender, short toDeliver, int round) {
+    public IHaveMessage(UUID mid, Host sender, Host receiver, short toDeliver, int round) {
         super(MSG_ID);
+        this.receiver = receiver;
         this.mid = mid;
         this.sender = sender;
         this.toDeliver = toDeliver;
@@ -46,6 +48,10 @@ public class IHaveMessage extends ProtoMessage {
         return sender;
     }
 
+    public Host getReceiver() {
+        return receiver;
+    }
+
     public UUID getMid() {
         return mid;
     }
@@ -61,6 +67,7 @@ public class IHaveMessage extends ProtoMessage {
             out.writeLong(iHaveMessage.mid.getLeastSignificantBits());
             out.writeInt(iHaveMessage.round);
             Host.serializer.serialize(iHaveMessage.sender, out);
+            Host.serializer.serialize(iHaveMessage.receiver,out);
             out.writeShort(iHaveMessage.toDeliver);
         }
 
@@ -71,8 +78,9 @@ public class IHaveMessage extends ProtoMessage {
             int round = in.readInt();
             UUID mid = new UUID(firstLong, secondLong);
             Host sender = Host.serializer.deserialize(in);
+            Host receiver = Host.serializer.deserialize(in);
             short toDeliver = in.readShort();
-            return new IHaveMessage(mid, sender, toDeliver, round);
+            return new IHaveMessage(mid, sender,receiver, toDeliver, round);
         }
     };
 

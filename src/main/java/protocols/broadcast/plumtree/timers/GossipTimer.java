@@ -19,6 +19,6 @@ public class GossipTimer extends ProtoTimer {
 
     @Override
     public ProtoTimer clone() {
-        return null;
+        return this;
     }
 }
