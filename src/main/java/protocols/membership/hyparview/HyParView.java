@@ -217,10 +217,10 @@ public class HyParView extends GenericProtocol {
     /* -------------------------------- Timers ------------------------------------- */
 
     private void uponShuffleTimer(ShuffleTimer timer, long timerId) {
-        if(passiveView.size() == 0 || activeView.size() == 0)
+        if (passiveView.size() == 0 || activeView.size() == 0)
             return;
 
-        this.currentSample= new HashSet<>();
+        this.currentSample = new HashSet<>();
         this.currentSample.addAll(activeView.getRandomSubset(this.shuffle_ka));
         this.currentSample.addAll(passiveView.getRandomSubset(this.shuffle_kp));
         sendMessage(new ShuffleMessage(this.currentSample, this.shuffle_ttl, self), activeView.getRandom());
@@ -265,7 +265,7 @@ public class HyParView extends GenericProtocol {
     private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
         logger.debug("Connection to {} is down cause {}", event.getNode(), event.getCause());
 
-        if(!activeView.contains(event.getNode()))
+        if (!activeView.contains(event.getNode()))
             outConn.remove(event.getNode());
         else {
             dropNeighbor(event.getNode());
@@ -287,6 +287,9 @@ public class HyParView extends GenericProtocol {
         if (context == PendingConnContext.NEIGHBOR) {
             tryNewNeighbor();
         }
+
+
+        //TODO: check forward join fail ?
 
     }
 
@@ -348,29 +351,22 @@ public class HyParView extends GenericProtocol {
         }
     }
 
-    private void addToPassiveConsidering(Set<Host> sample, Set<Host> sentPeers){
-
-        // add to the passive view if it has space
-        while (!sample.isEmpty()){
-            Optional<Host> op = sample.stream().findFirst();
-
-            Host toAdd = op.get();
+    private void addToPassiveConsidering(Set<Host> sample, Set<Host> sentPeers) {
+        while (!sample.isEmpty()) {
+            Host toAdd = sample.stream().findFirst().get();
             sample.remove(toAdd);
 
             if (passiveView.isFull()) {
-
                 if (sentPeers.isEmpty()) {
                     passiveView.remove(passiveView.getRandom());
                 } else {
-                    op = sentPeers.stream().findFirst();
-                    Host toRem = op.get();
-                    sentPeers.remove(toRem);
-                    passiveView.remove(toRem);
+                    Host toRm = sentPeers.stream().findFirst().get();
+                    sentPeers.remove(toRm);
+                    passiveView.remove(toRm);
                 }
-
             }
             passiveView.add(toAdd);
         }
-
     }
+
 }
