@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public class PruneMessage extends ProtoMessage {
 
-    public static final short MSG_ID = 204;
+    public static final short MSG_ID = 214;
     private final Host sender;
     private final short toDeliver;
 

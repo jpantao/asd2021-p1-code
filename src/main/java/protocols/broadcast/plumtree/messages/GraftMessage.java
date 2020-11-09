@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public class GraftMessage extends ProtoMessage {
 
-    public static final short MSG_ID = 202;
+    public static final short MSG_ID = 212;
 
     private final UUID mid;
     private final Host sender;

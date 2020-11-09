@@ -20,15 +20,17 @@ import java.util.*;
 public class PlumTreeBroadcast extends GenericProtocol {
     private static final Logger logger = LogManager.getLogger(PlumTreeBroadcast.class);
     public static final String PROTOCOL_NAME = "PlumTree";
-    public static final short PROTOCOL_ID = 200;
+    public static final short PROTOCOL_ID = 210;
     private final Host myself;
-    private Set<Host> eagerPushPeers;
-    private Set<Host> lazyPushPeers;
-    private Map<UUID,GossipMessage> received;
-    private List<IHaveMessage> missing;
+    private final Set<Host> eagerPushPeers;
+    private final Set<Host> lazyPushPeers;
+    private final Map<UUID,GossipMessage> received;
+    private final List<IHaveMessage> missing;
     private List<IHaveMessage> lazyQueue;
-    private Map<UUID,Long> gossipTimers;
+    private final Map<UUID,Long> gossipTimers;
     private boolean channelReady;
+    private final int gossipTimer;
+    private final int graftTimer;
 
     public PlumTreeBroadcast(Properties properties, Host myself) throws HandlerRegistrationException {
         super(PROTOCOL_NAME,PROTOCOL_ID);
@@ -45,6 +47,8 @@ public class PlumTreeBroadcast extends GenericProtocol {
         subscribeNotification(NeighbourUp.NOTIFICATION_ID, this::uponNeighbourUp);
         subscribeNotification(NeighbourDown.NOTIFICATION_ID, this::uponNeighbourDown);
         subscribeNotification(ChannelCreated.NOTIFICATION_ID, this::uponChannelCreated);
+        gossipTimer = Integer.parseInt(properties.getProperty("plm_gossip_timer"));
+        graftTimer = Integer.parseInt(properties.getProperty("plm_graft_timer"));
     }
 
     @Override
@@ -154,7 +158,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
                 + "\n-------------------------------------------------------------------");
         if(!received.containsKey(msg.getMid())) {
             if(!gossipTimers.containsKey(msg.getMid())) {
-                long timerID = setupTimer(new GossipTimer(msg.getMid()),1000); //TODO define better timeouts
+                long timerID = setupTimer(new GossipTimer(msg.getMid()),gossipTimer); //TODO define better timeouts
                 gossipTimers.put(msg.getMid(),timerID);
             }
             missing.add(msg);
@@ -167,7 +171,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
                 + "\n-------------------------------------------------------------------");
-        long timerID = setupTimer(gossipTimer,100); //TODO define better timeouts // should i put this after the second if
+        long timerID = setupTimer(gossipTimer,graftTimer); //TODO define better timeouts // should i put this after the second if
         gossipTimers.put(gossipTimer.getMsgID(),timerID);
         IHaveMessage m = null;
         for(IHaveMessage iHave: missing)

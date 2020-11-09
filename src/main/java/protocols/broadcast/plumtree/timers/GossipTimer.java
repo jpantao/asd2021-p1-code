@@ -6,7 +6,7 @@ import java.util.UUID;
 
 public class GossipTimer extends ProtoTimer {
 
-    public static final short TIMER_ID = 401;
+    public static final short TIMER_ID = 215;
     private UUID msgID;
     public GossipTimer(UUID msgID) {
         super(TIMER_ID);

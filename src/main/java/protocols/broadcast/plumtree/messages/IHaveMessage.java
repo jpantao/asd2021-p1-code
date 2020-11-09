@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public class IHaveMessage extends ProtoMessage {
 
-    public static final short MSG_ID = 203;
+    public static final short MSG_ID = 213;
 
     private final UUID mid;
     private final Host sender;
