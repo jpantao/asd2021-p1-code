@@ -184,11 +184,13 @@ public class Cyclon extends GenericProtocol {
         }
         if (oldest != null) {
             Host oldest_host = oldest.getKey();
-            removeNeighbour(oldest_host);
-            sample = getRandomSubset(neighbours, n);
-            Map<Host, Integer> aux = sample;
-            aux.put(self, 0);
-            dispatchMessage(new ShuffleRequest(aux), oldest_host);
+
+            Map<Host, Integer> aux1 = neighbours;
+            aux1.remove(oldest_host);
+            sample = getRandomSubset(aux1, n);
+            Map<Host, Integer> aux2 = sample;
+            aux2.put(self, 0);
+            dispatchMessage(new ShuffleRequest(aux2), oldest_host);
         }
         //logger.info("Neighbours after: {}", neighbours);
         //logger.info("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
@@ -204,8 +206,7 @@ public class Cyclon extends GenericProtocol {
         //logger.info("Received Sample: {}", receivedSample);
         //logger.info("Temporary Sample: {}", tempSample);
         tempSample.remove(host);
-        if (tempSample.isEmpty())
-            tempSample.put(self, 0);
+        tempSample.put(self, 0);
         dispatchMessage(new ShuffleReply(tempSample), host);
         //logger.info("Neighbours: {}", neighbours);
         //logger.info("###############################################################");
@@ -215,6 +216,7 @@ public class Cyclon extends GenericProtocol {
     private void uponShuffleReply(ShuffleReply shuffleReply, Host host, short destProto, int channelId) {
         //logger.info("#########################SHUFFLE REPLY#########################");
         //logger.info("From: {}", host);
+        removeNeighbour(host);
         closeConnection(host);
         Map<Host, Integer> receivedSample = shuffleReply.getSample();
         //logger.info("Received Sample: {}", receivedSample);
