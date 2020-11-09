@@ -3,7 +3,7 @@ import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.apps.BroadcastApp;
-import protocols.broadcast.flood.FloodBroadcast;
+import protocols.broadcast.plumtree.PlumTreeBroadcast;
 import protocols.membership.full.SimpleFullMembership;
 import utils.InterfaceToIp;
 
@@ -44,21 +44,25 @@ public class Main {
         logger.info("Hello, I am {}", myself);
 
         // Application
-        BroadcastApp broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);
+        //BroadcastApp broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);
+        BroadcastApp broadcastApp = new BroadcastApp(myself, props, PlumTreeBroadcast.PROTOCOL_ID);
         // Broadcast Protocol
-        FloodBroadcast broadcast = new FloodBroadcast(props, myself);
+        //FloodBroadcast broadcast = new FloodBroadcast(props, myself);
         // Membership Protocol
         SimpleFullMembership membership = new SimpleFullMembership(props, myself);
 
+        PlumTreeBroadcast plumtreeBroadcast = new PlumTreeBroadcast(props,myself);
+
         //Register applications in babel
         babel.registerProtocol(broadcastApp);
-        babel.registerProtocol(broadcast);
+        //babel.registerProtocol(broadcast);
         babel.registerProtocol(membership);
+        babel.registerProtocol(plumtreeBroadcast);
 
         //Init the protocols. This should be done after creating all protocols, since there can be inter-protocol
         //communications in this step.
         broadcastApp.init(props);
-        broadcast.init(props);
+        //broadcast.init(props);
         membership.init(props);
 
         //Start babel and protocol threads
