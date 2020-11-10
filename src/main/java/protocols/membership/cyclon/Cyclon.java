@@ -441,7 +441,7 @@ public class Cyclon extends GenericProtocol {
 
     // Channel event triggered after metrics timeout.
     private void uponChannelMetrics(ChannelMetrics event, int channelId) {
-        StringBuilder sb = new StringBuilder("\"-------------------------CHANNEL METRICS-----------------------").append(self).append("\n");
+        StringBuilder sb = new StringBuilder("ChannelMetrics:\n");
         sb.append("In channels:\n");
         event.getInConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s)\n",
                 c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
@@ -458,6 +458,6 @@ public class Cyclon extends GenericProtocol {
                 c.getReceivedAppBytes())));
         sb.setLength(sb.length() - 1);
         sb.append("\n---------------------------------------------------------------");
-        logger.debug(sb);
+        logger.info(sb);
     }
 }
