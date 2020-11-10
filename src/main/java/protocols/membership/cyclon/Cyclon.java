@@ -417,7 +417,7 @@ public class Cyclon extends GenericProtocol {
         sb.append("Pending Msgs: ").append(pendingMsgs).append("\n");
         sb.append("Sample: ").append(sample).append("\n");
         sb.append(getMetrics());
-        sb.append("---------------------------------------------------------------");
+        sb.append("\n---------------------------------------------------------------");
         logger.debug(sb);
     }
 
@@ -439,7 +439,7 @@ public class Cyclon extends GenericProtocol {
                 c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
                 c.getReceivedAppBytes())));
         sb.setLength(sb.length() - 1);
-        sb.append("---------------------------------------------------------------");
+        sb.append("\n---------------------------------------------------------------");
         logger.debug(sb);
     }
 }

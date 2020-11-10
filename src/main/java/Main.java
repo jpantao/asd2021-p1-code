@@ -89,6 +89,9 @@ public class Main {
             case HYPARVIEW_MEMBERSHIP:
                 membership = new HyParView(props, myself);
                 break;
+            case CYCLON_MEMBERSHIP:
+                membership = new Cyclon(props, myself);
+                break;
             default:
                 logger.error("Undisclosed membership protocol: {}", membership_proto);
                 System.exit(0);
