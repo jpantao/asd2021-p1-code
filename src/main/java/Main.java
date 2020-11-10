@@ -1,11 +1,14 @@
 import babel.core.Babel;
+import babel.core.GenericProtocol;
 import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.apps.BroadcastApp;
 import protocols.broadcast.flood.FloodBroadcast;
 import protocols.membership.cyclon.Cyclon;
+import protocols.broadcast.plumtree.PlumTreeBroadcast;
 import protocols.membership.full.SimpleFullMembership;
+import protocols.membership.hyparview.HyParView;
 import utils.InterfaceToIp;
 
 import java.net.InetAddress;
@@ -13,6 +16,16 @@ import java.util.Properties;
 
 
 public class Main {
+
+    // Broadcast protocols
+    static final String FLOOD_BROADCAST = "fld";
+    static final String PLUMTREE_BROADCAST = "plm";
+
+    // Membership protocols
+    static final String SIMPLEFULL_MEMBERSHIP = "smp";
+    static final String HYPARVIEW_MEMBERSHIP = "hpv";
+    static final String CYCLON_MEMBERSHIP = "cln";
+
 
     //Sets the log4j (logging library) configuration file
     static {
@@ -44,13 +57,42 @@ public class Main {
 
         logger.info("Hello, I am {}", myself);
 
-        // Application
-        BroadcastApp broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);
-        // Broadcast Protocol
-        FloodBroadcast broadcast = new FloodBroadcast(props, myself);
+        String broadcast_proto = props.getProperty("broadcast_proto");
+        String membership_proto = props.getProperty("membership_proto");
+
+
+        // Application and broadcast protocol
+        BroadcastApp broadcastApp = null;
+        GenericProtocol broadcast = null;
+
+        switch (broadcast_proto) {
+            case FLOOD_BROADCAST:
+                broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);
+                broadcast = new FloodBroadcast(props, myself);
+                break;
+            case PLUMTREE_BROADCAST:
+                broadcastApp = new BroadcastApp(myself, props, PlumTreeBroadcast.PROTOCOL_ID);
+                broadcast = new PlumTreeBroadcast(props, myself);
+                break;
+            default:
+                logger.error("Undisclosed broadcast protocol: {}", broadcast_proto);
+                System.exit(0);
+        }
+
         // Membership Protocol
-        //SimpleFullMembership membership = new SimpleFullMembership(props, myself);
-        Cyclon membership = new Cyclon(props, myself);
+        GenericProtocol membership = null;
+
+        switch (membership_proto) {
+            case SIMPLEFULL_MEMBERSHIP:
+                membership = new SimpleFullMembership(props, myself);
+                break;
+            case HYPARVIEW_MEMBERSHIP:
+                membership = new HyParView(props, myself);
+                break;
+            default:
+                logger.error("Undisclosed membership protocol: {}", membership_proto);
+                System.exit(0);
+        }
 
         //Register applications in babel
         babel.registerProtocol(broadcastApp);
