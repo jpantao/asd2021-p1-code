@@ -3,7 +3,6 @@ package protocols.membership.cyclon;
 import babel.core.GenericProtocol;
 import babel.exceptions.HandlerRegistrationException;
 import babel.generic.ProtoMessage;
-import babel.generic.ProtoTimer;
 import channel.tcp.TCPChannel;
 import channel.tcp.events.*;
 import network.data.Host;
@@ -92,7 +91,7 @@ public class Cyclon extends GenericProtocol {
         /*--------------------- Register Timer Handlers ----------------------------- */
         registerTimerHandler(ShuffleTimer.TIMER_ID, this::uponShuffle);
         registerTimerHandler(PrepareTimer.TIMER_ID, this::uponPrepare);
-        registerTimerHandler(MetricsTimer.TIMER_ID, this::uponProtocolMetrics);
+        registerTimerHandler(CLNMetricsTimer.TIMER_ID, this::uponProtocolMetrics);
         /*-------------------- Register Channel Events ------------------------------- */
         registerChannelEventHandler(channelId, OutConnectionDown.EVENT_ID, this::uponUpConnectionDown);
         registerChannelEventHandler(channelId, OutConnectionFailed.EVENT_ID, this::uponOutConnectionFailed);
@@ -119,7 +118,7 @@ public class Cyclon extends GenericProtocol {
                     setupTimer(new PrepareTimer(), C);
                 int pMetricsInterval = Integer.parseInt(props.getProperty("cln_protocol_metrics_interval", "10000"));
                 if (pMetricsInterval > 0)
-                    setupPeriodicTimer(new MetricsTimer(), pMetricsInterval, pMetricsInterval);
+                    setupPeriodicTimer(new CLNMetricsTimer(), pMetricsInterval, pMetricsInterval);
             } catch (Exception e) {
                 logger.error("Invalid contact on configuration: '" + props.getProperty("contact"));
                 e.printStackTrace();
@@ -428,7 +427,7 @@ public class Cyclon extends GenericProtocol {
     /* --------------------------------- Metrics ---------------------------- */
 
     // Event triggered after info timeout.
-    private void uponProtocolMetrics(MetricsTimer timer, long timerId) {
+    private void uponProtocolMetrics(CLNMetricsTimer timer, long timerId) {
         StringBuilder sb = new StringBuilder("CyclonMetrics::");
         sb.append("::host=").append(self);
         sb.append("::neighbours=").append(neighbours);

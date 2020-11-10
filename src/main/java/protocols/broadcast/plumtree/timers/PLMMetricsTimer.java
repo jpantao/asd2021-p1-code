@@ -2,11 +2,11 @@ package protocols.broadcast.plumtree.timers;
 
 import babel.generic.ProtoTimer;
 
-public class MetricsTimer extends ProtoTimer {
+public class PLMMetricsTimer extends ProtoTimer {
 
     public static final short TIMER_ID = 216;
 
-    public MetricsTimer() {
+    public PLMMetricsTimer() {
         super(TIMER_ID);
     }
 

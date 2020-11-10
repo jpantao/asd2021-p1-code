@@ -43,7 +43,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         this.lazyQueue = new LinkedList<>();
         this.gossipTimers = new HashMap<>();
         registerTimerHandler(GossipTimer.TIMER_ID, this::uponGossipTimer);
-        registerTimerHandler(MetricsTimer.TIMER_ID, this::uponProtocolMetrics);
+        registerTimerHandler(PLMMetricsTimer.TIMER_ID, this::uponProtocolMetrics);
         registerRequestHandler(BroadcastRequest.REQUEST_ID, this::uponBroadcastRequest);
         subscribeNotification(NeighbourUp.NOTIFICATION_ID, this::uponNeighbourUp);
         subscribeNotification(NeighbourDown.NOTIFICATION_ID, this::uponNeighbourDown);
@@ -57,7 +57,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
     public void init(Properties properties) throws HandlerRegistrationException, IOException {
         int pMetricsInterval = Integer.parseInt(properties.getProperty("plm_protocol_metrics_interval", "10000"));
         if (pMetricsInterval > 0)
-            setupPeriodicTimer(new MetricsTimer(), pMetricsInterval, pMetricsInterval);
+            setupPeriodicTimer(new PLMMetricsTimer(), pMetricsInterval, pMetricsInterval);
     }
 
     //Upon receiving the channelId from the membership, register our own callbacks and serializers
@@ -268,7 +268,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
 
     // Event triggered after info timeout.
-    private void uponProtocolMetrics(protocols.membership.cyclon.timers.MetricsTimer timer, long timerId) {
+    private void uponProtocolMetrics(PLMMetricsTimer timer, long timerId) {
         StringBuilder sb = new StringBuilder("PlumTreeMetrics::");
         sb.append("::host=").append(myself);
         sb.append("::eagerPush=").append(eagerPushPeers);
