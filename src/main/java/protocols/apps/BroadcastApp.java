@@ -93,6 +93,7 @@ public class BroadcastApp extends GenericProtocol {
         //Upon receiving a message, simply print it
         logger.info("Received {} - {} ({}) from {}", reply.getMsgId(),
                 new String(reply.getMsg(), StandardCharsets.US_ASCII), reply.getMsg().length, reply.getSender());
+
     }
 
     private void uponStopTimer(StopTimer stopTimer, long timerId) {
@@ -100,6 +101,7 @@ public class BroadcastApp extends GenericProtocol {
         this.cancelTimer(broadCastTimer);
         setupTimer(new ExitTimer(), cooldownTime * 1000);
     }
+
     private void uponExitTimer(ExitTimer exitTimer, long timerId) {
         logger.info("Exiting...");
         System.exit(0);
