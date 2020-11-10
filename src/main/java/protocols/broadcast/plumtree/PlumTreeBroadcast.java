@@ -1,14 +1,14 @@
 package protocols.broadcast.plumtree;
+
 import babel.core.GenericProtocol;
 import babel.exceptions.HandlerRegistrationException;
-import babel.generic.ProtoMessage;
 import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.broadcast.common.BroadcastRequest;
 import protocols.broadcast.common.DeliverNotification;
 import protocols.broadcast.plumtree.messages.*;
-import protocols.broadcast.plumtree.timers.GossipTimer;
+import protocols.broadcast.plumtree.timers.*;
 import protocols.membership.common.notifications.ChannelCreated;
 import protocols.membership.common.notifications.NeighbourDown;
 import protocols.membership.common.notifications.NeighbourUp;
@@ -24,16 +24,16 @@ public class PlumTreeBroadcast extends GenericProtocol {
     private final Host myself;
     private final Set<Host> eagerPushPeers;
     private final Set<Host> lazyPushPeers;
-    private final Map<UUID,GossipMessage> received;
+    private final Map<UUID, GossipMessage> received;
     private final List<IHaveMessage> missing;
     private List<IHaveMessage> lazyQueue;
-    private final Map<UUID,Long> gossipTimers;
+    private final Map<UUID, Long> gossipTimers;
     private boolean channelReady;
     private final int gossipTimer;
     private final int graftTimer;
 
     public PlumTreeBroadcast(Properties properties, Host myself) throws HandlerRegistrationException {
-        super(PROTOCOL_NAME,PROTOCOL_ID);
+        super(PROTOCOL_NAME, PROTOCOL_ID);
         this.myself = myself;
         this.eagerPushPeers = new HashSet<>();
         this.lazyPushPeers = new HashSet<>();
@@ -43,6 +43,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         this.lazyQueue = new LinkedList<>();
         this.gossipTimers = new HashMap<>();
         registerTimerHandler(GossipTimer.TIMER_ID, this::uponGossipTimer);
+        registerTimerHandler(MetricsTimer.TIMER_ID, this::uponProtocolMetrics);
         registerRequestHandler(BroadcastRequest.REQUEST_ID, this::uponBroadcastRequest);
         subscribeNotification(NeighbourUp.NOTIFICATION_ID, this::uponNeighbourUp);
         subscribeNotification(NeighbourDown.NOTIFICATION_ID, this::uponNeighbourDown);
@@ -51,9 +52,12 @@ public class PlumTreeBroadcast extends GenericProtocol {
         graftTimer = Integer.parseInt(properties.getProperty("plm_graft_timer"));
     }
 
+
     @Override
     public void init(Properties properties) throws HandlerRegistrationException, IOException {
-
+        int pMetricsInterval = Integer.parseInt(properties.getProperty("plm_protocol_metrics_interval", "10000"));
+        if (pMetricsInterval > 0)
+            setupPeriodicTimer(new MetricsTimer(), pMetricsInterval, pMetricsInterval);
     }
 
     //Upon receiving the channelId from the membership, register our own callbacks and serializers
@@ -79,17 +83,17 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
     private void eagerPush(GossipMessage message, Host sender) {
         //logger.info("PlumTree Eager push:");
-        for(Host e: eagerPushPeers) {
-            if(!e.equals(sender))
-                sendMessage(message,e);
+        for (Host e : eagerPushPeers) {
+            if (!e.equals(sender))
+                sendMessage(message, e);
         }
     }
 
-    private void lazyPush(UUID msgID,Host sender, short sourceProto, int round ) {
+    private void lazyPush(UUID msgID, Host sender, short sourceProto, int round) {
         //logger.debug("PlumTree Lazy push:");
-        for(Host l: lazyPushPeers) {
+        for (Host l : lazyPushPeers) {
             if (!l.equals(sender)) {
-                lazyQueue.add(new IHaveMessage(msgID,myself,l,sourceProto,round));
+                lazyQueue.add(new IHaveMessage(msgID, myself, l, sourceProto, round));
                 //logger.debug("Adding iHave");
             }
         }
@@ -103,8 +107,8 @@ public class PlumTreeBroadcast extends GenericProtocol {
     }
 
     private void policy() {
-        for(IHaveMessage msg: lazyQueue)
-            sendMessage(msg,msg.getReceiver());
+        for (IHaveMessage msg : lazyQueue)
+            sendMessage(msg, msg.getReceiver());
         lazyQueue = new LinkedList<>();
     }
 
@@ -115,10 +119,10 @@ public class PlumTreeBroadcast extends GenericProtocol {
                 + " Lazy push peers: " + lazyPushPeers.toString() +
                 "\n----------------------------");
         if (!channelReady) return;
-        GossipMessage gossipMessage = new GossipMessage(request.getMsgId(),myself,sourceProto,request.getMsg(),0);
+        GossipMessage gossipMessage = new GossipMessage(request.getMsgId(), myself, sourceProto, request.getMsg(), 0);
         eagerPush(gossipMessage, myself);
-        lazyPush(request.getMsgId(),myself,sourceProto,0);
-        received.put(request.getMsgId(),gossipMessage);
+        lazyPush(request.getMsgId(), myself, sourceProto, 0);
+        received.put(request.getMsgId(), gossipMessage);
         triggerNotification(new DeliverNotification(request.getMsgId(), request.getSender(), request.getMsg()));
     }
 
@@ -128,25 +132,25 @@ public class PlumTreeBroadcast extends GenericProtocol {
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
                 + "\n-------------------------------------------------------------------");
-        if(!received.containsKey(msg.getMid())) {
+        if (!received.containsKey(msg.getMid())) {
             triggerNotification(new DeliverNotification(msg.getMid(), myself, msg.getContent()));
-            received.put(msg.getMid(),msg);
-            if(gossipTimers.containsKey(msg.getMid())) {
+            received.put(msg.getMid(), msg);
+            if (gossipTimers.containsKey(msg.getMid())) {
                 long timerID = gossipTimers.get(msg.getMid());
                 gossipTimers.remove(msg.getMid());
                 logger.debug("Cancelling timer");
                 cancelTimer(timerID);
             }
             msg.setRound();
-            eagerPush(msg,from);
-            lazyPush(msg.getMid(),from,sourceProto,msg.getRound());
+            eagerPush(msg, from);
+            lazyPush(msg.getMid(), from, sourceProto, msg.getRound());
             eagerPushPeers.add(from);
             lazyPushPeers.remove(from);
             //TODO optimize
         } else {
             eagerPushPeers.remove(from);
             lazyPushPeers.add(from);
-            sendMessage(new PruneMessage(myself,sourceProto),from);
+            sendMessage(new PruneMessage(myself, sourceProto), from);
         }
     }
 
@@ -156,10 +160,10 @@ public class PlumTreeBroadcast extends GenericProtocol {
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
                 + "\n-------------------------------------------------------------------");
-        if(!received.containsKey(msg.getMid())) {
-            if(!gossipTimers.containsKey(msg.getMid())) {
-                long timerID = setupTimer(new GossipTimer(msg.getMid()),gossipTimer); //TODO define better timeouts
-                gossipTimers.put(msg.getMid(),timerID);
+        if (!received.containsKey(msg.getMid())) {
+            if (!gossipTimers.containsKey(msg.getMid())) {
+                long timerID = setupTimer(new GossipTimer(msg.getMid()), gossipTimer); //TODO define better timeouts
+                gossipTimers.put(msg.getMid(), timerID);
             }
             missing.add(msg);
         }
@@ -167,31 +171,31 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
     private void uponGossipTimer(GossipTimer gossipTimer, long timerId) {
         logger.debug("\n-------------------------------------------------------------------\n"
-                + "UponGossipTimer " + gossipTimer.getMsgID() +  "\n"
+                + "UponGossipTimer " + gossipTimer.getMsgID() + "\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
                 + "\n-------------------------------------------------------------------");
-        long timerID = setupTimer(gossipTimer,graftTimer); //TODO define better timeouts // should i put this after the second if
-        gossipTimers.put(gossipTimer.getMsgID(),timerID);
+        long timerID = setupTimer(gossipTimer, graftTimer); //TODO define better timeouts // should i put this after the second if
+        gossipTimers.put(gossipTimer.getMsgID(), timerID);
         IHaveMessage m = null;
-        for(IHaveMessage iHave: missing)
-            if(iHave.getMid().equals(gossipTimer.getMsgID())) {
+        for (IHaveMessage iHave : missing)
+            if (iHave.getMid().equals(gossipTimer.getMsgID())) {
                 m = iHave;
                 missing.remove(iHave);
                 break;
             }
 
-        if(m != null) {
+        if (m != null) {
             eagerPushPeers.add(m.getSender());
             lazyPushPeers.remove(m.getSender());
-            GraftMessage graftMessage = new GraftMessage(m.getMid(),m.getSender(),m.getToDeliver());
-            sendMessage(graftMessage,m.getSender());
+            GraftMessage graftMessage = new GraftMessage(m.getMid(), m.getSender(), m.getToDeliver());
+            sendMessage(graftMessage, m.getSender());
         }
     }
 
     private void uponPruneMessage(PruneMessage msg, Host from, short sourceProto, int channelId) {
         logger.debug("\n-------------------------------------------------------------------\n"
-                + "UponPruneMessage " + msg.getId() + " From: " + from +"\n"
+                + "UponPruneMessage " + msg.getId() + " From: " + from + "\n"
                 + " Myself:" + myself + " Eager push peers: " + eagerPushPeers.toString() + "\n"
                 + " Lazy push peers: " + lazyPushPeers.toString()
                 + "\n-------------------------------------------------------------------");
@@ -208,20 +212,20 @@ public class PlumTreeBroadcast extends GenericProtocol {
         eagerPushPeers.add(from);
         lazyPushPeers.remove(from);
 
-        if(received.containsKey(msg.getMid()))
-            sendMessage(received.get(msg.getMid()),from);
+        if (received.containsKey(msg.getMid()))
+            sendMessage(received.get(msg.getMid()), from);
     }
 
     //---------------------------------------------Neighbour events-----------------------------------------------------
     private void uponNeighbourUp(NeighbourUp notification, short sourceProto) {
-        for(Host h: notification.getNeighbours()) {
+        for (Host h : notification.getNeighbours()) {
             eagerPushPeers.add(h);
             logger.debug("PlumTree: New neighbour: " + h);
         }
     }
 
     private void uponNeighbourDown(NeighbourDown notification, short sourceProto) {
-        for(Host h: notification.getNeighbours()) {
+        for (Host h : notification.getNeighbours()) {
             eagerPushPeers.remove(h);
             lazyPushPeers.remove(h);
             logger.debug("PlumTree: Neighbour down: " + h);
@@ -260,5 +264,20 @@ public class PlumTreeBroadcast extends GenericProtocol {
                 + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
                 " lazyPushPeers: " + lazyPushPeers.toString());
         //sendMessage(msg,host);
+    }
+
+
+    // Event triggered after info timeout.
+    private void uponProtocolMetrics(protocols.membership.cyclon.timers.MetricsTimer timer, long timerId) {
+        StringBuilder sb = new StringBuilder("PlumTreeMetrics::");
+        sb.append("::host=").append(myself);
+        sb.append("::eagerPush=").append(eagerPushPeers);
+        sb.append("::lazyPushPeers=").append(lazyPushPeers);
+        sb.append("::received=").append(received);
+        sb.append("::missing=").append(missing);
+        sb.append("::lazyQueue=").append(lazyQueue);
+        sb.append("::gossipTimers=").append(gossipTimers);
+        sb.append("::metrics=").append(getMetrics());
+        logger.debug(sb);
     }
 }
