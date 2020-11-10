@@ -3,6 +3,7 @@ package protocols.membership.cyclon;
 import babel.core.GenericProtocol;
 import babel.exceptions.HandlerRegistrationException;
 import babel.generic.ProtoMessage;
+import babel.generic.ProtoTimer;
 import channel.tcp.TCPChannel;
 import channel.tcp.events.*;
 import network.data.Host;
@@ -39,6 +40,8 @@ public class Cyclon extends GenericProtocol {
     private final int n; //Maximum size of the sample set
     private final int T; //Shuffle period, in milliseconds
     private final int L; //Expected average path length, in number of hops
+    private final int C; //Expected convergence period.
+    private final int L2; //After convergence shuffle period.
 
     //Utils
     private final Random rnd;
@@ -56,6 +59,8 @@ public class Cyclon extends GenericProtocol {
         this.n = Integer.parseInt(props.getProperty("cln_sample_size", "3"));
         this.T = Integer.parseInt(props.getProperty("cln_shuffle_period", "2000"));
         this.L = Integer.parseInt(props.getProperty("cln_expected_average_path_length", "4"));
+        this.C = Integer.parseInt(props.getProperty("cln_convergence_time", "-1"));
+        this.L2 = Integer.parseInt(props.getProperty("cln_after_convergence_shuffle_period", "-1"));
         this.self = self;
         this.neighbours = new HashMap<>(N);
         this.upConnections = new HashSet<>(N);
@@ -86,13 +91,16 @@ public class Cyclon extends GenericProtocol {
         registerMessageHandler(channelId, ShuffleReply.MSG_ID, this::uponShuffleReply, this::uponShuffleReplyFail);
         /*--------------------- Register Timer Handlers ----------------------------- */
         registerTimerHandler(ShuffleTimer.TIMER_ID, this::uponShuffle);
+        registerTimerHandler(PrepareTimer.TIMER_ID, this::uponPrepare);
         registerTimerHandler(MetricsTimer.TIMER_ID, this::uponProtocolMetrics);
         /*-------------------- Register Channel Events ------------------------------- */
         registerChannelEventHandler(channelId, OutConnectionDown.EVENT_ID, this::uponUpConnectionDown);
         registerChannelEventHandler(channelId, OutConnectionFailed.EVENT_ID, this::uponOutConnectionFailed);
         registerChannelEventHandler(channelId, OutConnectionUp.EVENT_ID, this::uponOutConnectionUp);
         registerChannelEventHandler(channelId, ChannelMetrics.EVENT_ID, this::uponChannelMetrics);
+
     }
+
 
     @Override
     public void init(Properties props) {
@@ -107,6 +115,8 @@ public class Cyclon extends GenericProtocol {
                 queueMessage(new JoinRequest(self, L), contact);
                 openConnection(contact);
                 setupPeriodicTimer(new ShuffleTimer(), this.T, this.T);
+                if (C > 0)
+                    setupTimer(new PrepareTimer(), C);
                 int pMetricsInterval = Integer.parseInt(props.getProperty("cln_protocol_metrics_interval", "10000"));
                 if (pMetricsInterval > 0)
                     setupPeriodicTimer(new MetricsTimer(), pMetricsInterval, pMetricsInterval);
@@ -170,6 +180,16 @@ public class Cyclon extends GenericProtocol {
             openConnection(newHost);
         }
         logger.debug("###############################################################");
+    }
+
+    private void uponPrepare(PrepareTimer timer, long timerId) {
+        logger.debug("+++++++++++++++++++++++++Prepare timeout+++++++++++++++++++++++");
+        logger.debug("Host: {}", self);
+        logger.debug("Neighbours: {}", neighbours);
+        cancelTimer(ShuffleTimer.TIMER_ID);
+        if (this.L2 > 0)
+            setupPeriodicTimer(new ShuffleTimer(), this.L2, this.L2);
+        logger.debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
     }
 
     // Event triggered after shuffle timeout.
