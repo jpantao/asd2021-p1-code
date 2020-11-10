@@ -24,6 +24,14 @@ public class PartialView{
         this.rnd = new Random();
     }
 
+    public int getMaxSize() {
+        return maxSize;
+    }
+
+    public Set<Host> getPeers() {
+        return peers;
+    }
+
     public boolean contains(Host elem){
         return peers.contains(elem);
     }
@@ -46,10 +54,6 @@ public class PartialView{
 
     public int size(){
         return peers.size();
-    }
-
-    public Iterator<Host> iterator() {
-        return peers.iterator();
     }
 
     public Host getRandom(){
