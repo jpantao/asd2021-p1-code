@@ -1,8 +1,10 @@
 import babel.core.Babel;
+import babel.core.GenericProtocol;
 import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.apps.BroadcastApp;
+import protocols.broadcast.flood.FloodBroadcast;
 import protocols.broadcast.plumtree.PlumTreeBroadcast;
 import protocols.membership.full.SimpleFullMembership;
 import protocols.membership.hyparview.HyParView;
@@ -13,6 +15,16 @@ import java.util.Properties;
 
 
 public class Main {
+
+    // Broadcast protocols
+    static final String FLOOD_BROADCAST = "fld";
+    static final String PLUMTREE_BROADCAST = "plm";
+
+    // Membership protocols
+    static final String SIMPLEFULL_MEMBERSHIP = "smp";
+    static final String HYPARVIEW_MEMBERSHIP = "hpv";
+    static final String CYCLON_MEMBERSHIP = "cln";
+
 
     //Sets the log4j (logging library) configuration file
     static {
@@ -39,33 +51,57 @@ public class Main {
 
         //The Host object is an address/port pair that represents a network host. It is used extensively in babel
         //It implements equals and hashCode, and also includes a serializer that makes it easy to use in network messages
-        Host myself =  new Host(InetAddress.getByName(props.getProperty("address")),
+        Host myself = new Host(InetAddress.getByName(props.getProperty("address")),
                 Integer.parseInt(props.getProperty("port")));
 
         logger.info("Hello, I am {}", myself);
 
-        // Application
-        //BroadcastApp broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);
-        BroadcastApp broadcastApp = new BroadcastApp(myself, props, PlumTreeBroadcast.PROTOCOL_ID);
-        // Broadcast Protocol
-        //FloodBroadcast broadcast = new FloodBroadcast(props, myself);
+        String broadcast_proto = props.getProperty("broadcast_proto");
+        String membership_proto = props.getProperty("membership_proto");
+
+
+        // Application and broadcast protocol
+        BroadcastApp broadcastApp = null;
+        GenericProtocol broadcast = null;
+
+        switch (broadcast_proto) {
+            case FLOOD_BROADCAST:
+                broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);
+                broadcast = new FloodBroadcast(props, myself);
+                break;
+            case PLUMTREE_BROADCAST:
+                broadcastApp = new BroadcastApp(myself, props, PlumTreeBroadcast.PROTOCOL_ID);
+                broadcast = new PlumTreeBroadcast(props, myself);
+                break;
+            default:
+                logger.error("Undisclosed broadcast protocol: {}", broadcast_proto);
+                System.exit(0);
+        }
+
         // Membership Protocol
-        //SimpleFullMembership membership = new SimpleFullMembership(props, myself);
-        HyParView membership = new HyParView(props, myself);
+        GenericProtocol membership = null;
 
-
-        PlumTreeBroadcast plumtreeBroadcast = new PlumTreeBroadcast(props,myself);
+        switch (membership_proto) {
+            case SIMPLEFULL_MEMBERSHIP:
+                membership = new SimpleFullMembership(props, myself);
+                break;
+            case HYPARVIEW_MEMBERSHIP:
+                membership = new HyParView(props, myself);
+                break;
+            default:
+                logger.error("Undisclosed membership protocol: {}", membership_proto);
+                System.exit(0);
+        }
 
         //Register applications in babel
         babel.registerProtocol(broadcastApp);
-        //babel.registerProtocol(broadcast);
+        babel.registerProtocol(broadcast);
         babel.registerProtocol(membership);
-        babel.registerProtocol(plumtreeBroadcast);
 
         //Init the protocols. This should be done after creating all protocols, since there can be inter-protocol
         //communications in this step.
         broadcastApp.init(props);
-        //broadcast.init(props);
+        broadcast.init(props);
         membership.init(props);
 
         //Start babel and protocol threads

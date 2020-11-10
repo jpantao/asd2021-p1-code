@@ -84,7 +84,7 @@ public class BroadcastApp extends GenericProtocol {
         byte[] payload = toSend.getBytes(StandardCharsets.US_ASCII);
 
         BroadcastRequest request = new BroadcastRequest(UUID.randomUUID(), self, payload);
-        logger.info("Sending: {} - {} ({})", request.getMsgId(), toSend, payload.length);
+        logger.info("Sending {} - {} ({})", request.getMsgId(), toSend, payload.length);
         //And send it to the dissemination protocol
         sendRequest(request, broadcastProtoId);
     }
