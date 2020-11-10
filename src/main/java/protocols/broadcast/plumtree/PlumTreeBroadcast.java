@@ -269,15 +269,15 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
     // Event triggered after info timeout.
     private void uponProtocolMetrics(PLMMetricsTimer timer, long timerId) {
-        StringBuilder sb = new StringBuilder("PlumTreeMetrics_");
-        sb.append("_host=").append(myself);
-        sb.append("_eagerPush=").append(eagerPushPeers.size());
-        sb.append("_lazyPushPeers=").append(lazyPushPeers.size());
-        sb.append("_received=").append(received.keySet().size());
-        sb.append("_missing=").append(missing.size());
-        sb.append("_lazyQueue=").append(lazyQueue.size());
-        sb.append("_gossipTimers=").append(gossipTimers.keySet().size());
-        sb.append("_metrics=").append(getMetrics());
+        StringBuilder sb = new StringBuilder("PlumTreeMetrics: ");
+        sb.append(" host=").append(myself);
+        sb.append(" eagerPush=").append(eagerPushPeers.size());
+        sb.append(" lazyPushPeers=").append(lazyPushPeers.size());
+        sb.append(" received=").append(received.keySet().size());
+        sb.append(" missing=").append(missing.size());
+        sb.append(" lazyQueue=").append(lazyQueue.size());
+        sb.append(" gossipTimers=").append(gossipTimers.keySet().size());
+        sb.append(" metrics=").append(getMetrics());
         logger.debug(sb);
     }
 }
