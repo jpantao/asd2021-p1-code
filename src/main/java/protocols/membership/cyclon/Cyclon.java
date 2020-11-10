@@ -428,14 +428,14 @@ public class Cyclon extends GenericProtocol {
 
     // Event triggered after info timeout.
     private void uponProtocolMetrics(CLNMetricsTimer timer, long timerId) {
-        StringBuilder sb = new StringBuilder("CyclonMetrics::");
-        sb.append("::host=").append(self);
-        sb.append("::neighbours=").append(neighbours);
-        sb.append("::upConnections=").append(upConnections);
-        sb.append("::pendingConnections=").append(pendingConnections);
-        sb.append("::pendingMsgs=").append(pendingMsgs);
-        sb.append("::sample=").append(sample);
-        sb.append("::metrics=").append(getMetrics());
+        StringBuilder sb = new StringBuilder("CyclonMetrics_");
+        sb.append("_host=").append(self);
+        sb.append("_neighbours=").append(neighbours.keySet().size());
+        sb.append("_upConnections=").append(upConnections.size());
+        sb.append("_pendingConnections=").append(pendingConnections.keySet().size());
+        sb.append("_pendingMsgs=").append(pendingMsgs.keySet().size());
+        sb.append("_sample=").append(sample.keySet().size());
+        sb.append("_metrics=").append(getMetrics());
         logger.debug(sb);
     }
 
