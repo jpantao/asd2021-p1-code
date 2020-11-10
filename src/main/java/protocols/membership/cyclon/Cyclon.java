@@ -3,6 +3,7 @@ package protocols.membership.cyclon;
 import babel.core.GenericProtocol;
 import babel.exceptions.HandlerRegistrationException;
 import babel.generic.ProtoMessage;
+import channel.ChannelListener;
 import channel.tcp.TCPChannel;
 import channel.tcp.events.*;
 import network.data.Host;
@@ -442,22 +443,50 @@ public class Cyclon extends GenericProtocol {
     // Channel event triggered after metrics timeout.
     private void uponChannelMetrics(ChannelMetrics event, int channelId) {
         StringBuilder sb = new StringBuilder("ChannelMetrics:\n");
-        sb.append("In channels:\n");
-        event.getInConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        event.getOldInConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s) (old)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        sb.append("Out channels:\n");
-        event.getOutConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        event.getOldOutConnections().forEach(c -> sb.append(String.format("\t%s: msgOut=%s (%s) msgIn=%s (%s) (old)\n",
-                c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
-                c.getReceivedAppBytes())));
-        sb.setLength(sb.length() - 1);
-        sb.append("\n---------------------------------------------------------------");
+
+        List<ChannelMetrics.ConnectionMetrics> in = event.getInConnections();
+        List<ChannelMetrics.ConnectionMetrics> oldIn = event.getOldOutConnections();
+        List<ChannelMetrics.ConnectionMetrics> out = event.getInConnections();
+        List<ChannelMetrics.ConnectionMetrics> oldOut = event.getOldOutConnections();
+
+
+        sb.append(String.format("In channels:\n\t);
+                msgIn = 0;
+        msgOut = 0;
+        totalOut = 0;
+        totalIn = 0;
+        oldMsgOut = 0;
+        oldMsgIn = 0;
+        oldTotalOut = 0;
+        oldTotalIn = 0;
+        for (ChannelMetrics.ConnectionMetrics c : out) {
+            msgOut += c.getSentAppMessages();
+            totalOut += c.getSentAppBytes();
+            msgIn += c.getReceivedAppMessages();
+            totalIn += c.getReceivedAppBytes();
+        }
+        for (ChannelMetrics.ConnectionMetrics c : oldOut) {
+            oldMsgOut += c.getSentAppMessages();
+            oldTotalOut += c.getSentAppBytes();
+            oldMsgIn += c.getReceivedAppMessages();
+            oldTotalIn += c.getReceivedAppBytes();
+        }
+        sb.append(String.format("Out channels:\n\tmsgOut=%d (%d) msgIn=%d (%d)\n\tmsgOut=%d (%d) msgIn=%d (%d) (old)",
+                msgOut, totalOut, msgIn, totalIn, oldMsgOut, oldTotalOut, oldMsgIn, oldTotalIn));
         logger.info(sb);
+    }
+
+    private String sumChannelMetrics(List<ChannelMetrics.ConnectionMetrics> metrics) {
+        int msgOut = 0;
+        int msgIn = 0;
+        int totalOut = 0;
+        int totalIn = 0;
+        for (ChannelMetrics.ConnectionMetrics c : metrics) {
+            msgOut += c.getSentAppMessages();
+            totalOut += c.getSentAppBytes();
+            msgIn += c.getReceivedAppMessages();
+            totalIn += c.getReceivedAppBytes();
+        }
+        return String.format("msgOut=%d (%d) msgIn=%d (%d)", msgOut, totalOut, msgIn, totalIn);
     }
 }
