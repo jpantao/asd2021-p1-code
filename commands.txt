@@ -1,6 +1,0 @@
-mvn package
-mvn clean
-java -jar target/asdProj.jar -conf config.properties port=5000
-java -jar target/asdProj.jar -conf config.properties port=5001 contact=127.0.0.1:5000
-grep "words to look up for" results/*
-grep "words to look up for" results/* | wc -l

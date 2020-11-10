@@ -430,7 +430,6 @@ public class Cyclon extends GenericProtocol {
     // Event triggered after info timeout.
     private void uponProtocolMetrics(CLNMetricsTimer timer, long timerId) {
         StringBuilder sb = new StringBuilder("MembershipMetrics[ ");
-        sb.append(" host=").append(self);
         sb.append(" neighbours=").append(neighbours.keySet().size());
         sb.append(" upConnections=").append(upConnections.size());
         sb.append(" pendingConnections=").append(pendingConnections.keySet().size());
@@ -442,11 +441,11 @@ public class Cyclon extends GenericProtocol {
 
     // Channel event triggered after metrics timeout.
     private void uponChannelMetrics(ChannelMetrics event, int channelId) {
-        StringBuilder sb = new StringBuilder("ChannelMetrics");
-        sb.append(":in[ ").append(sumChannelMetrics(event.getInConnections())).append(" ]");
-        sb.append(":oldIn[ ").append(sumChannelMetrics(event.getOldInConnections())).append(" ]");
-        sb.append(":out[ ").append(sumChannelMetrics(event.getOutConnections())).append(" ]");
-        sb.append(":oldOut[ ").append(sumChannelMetrics(event.getOldOutConnections())).append(" ]");
+        StringBuilder sb = new StringBuilder("ChannelMetrics:");
+        sb.append(sumChannelMetrics(event.getInConnections()));
+        sb.append(sumChannelMetrics(event.getOldInConnections()));
+        sb.append(sumChannelMetrics(event.getOutConnections()));
+        sb.append(sumChannelMetrics(event.getOldOutConnections()));
         logger.info(sb);
     }
 
@@ -461,6 +460,6 @@ public class Cyclon extends GenericProtocol {
             msgIn += c.getReceivedAppMessages();
             totalIn += c.getReceivedAppBytes();
         }
-        return String.format("msgOut=%d bytesOut=%d msgIn=%d bytesIn=%d", msgOut, totalOut, msgIn, totalIn);
+        return String.format("msgOut=%d bytesOut=%d msgIn=%d bytesIn=%d ", msgOut, totalOut, msgIn, totalIn);
     }
 }
