@@ -55,7 +55,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
     @Override
     public void init(Properties properties) throws HandlerRegistrationException, IOException {
-        int pMetricsInterval = Integer.parseInt(properties.getProperty("plm_protocol_metrics_interval", "10000"));
+        int pMetricsInterval = Integer.parseInt(properties.getProperty("protocol_metrics_interval", "10000"));
         if (pMetricsInterval > 0)
             setupPeriodicTimer(new PLMMetricsTimer(), pMetricsInterval, pMetricsInterval);
     }
@@ -269,7 +269,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
     // Event triggered after info timeout.
     private void uponProtocolMetrics(PLMMetricsTimer timer, long timerId) {
-        StringBuilder sb = new StringBuilder("Metrics: ");
+        StringBuilder sb = new StringBuilder("BroadCastMetrics[");
         sb.append(" host=").append(myself);
         sb.append(" eagerPush=").append(eagerPushPeers.size());
         sb.append(" lazyPushPeers=").append(lazyPushPeers.size());
@@ -277,7 +277,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         sb.append(" missing=").append(missing.size());
         sb.append(" lazyQueue=").append(lazyQueue.size());
         sb.append(" gossipTimers=").append(gossipTimers.keySet().size());
-        sb.append(" metrics=").append(getMetrics());
+        sb.append(" metrics=").append(getMetrics()).append(" ]");
         logger.debug(sb);
     }
 }

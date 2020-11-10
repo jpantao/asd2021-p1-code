@@ -158,7 +158,7 @@ public class HyParView extends GenericProtocol {
         logger.debug("Received join {} from {}", msg, from);
         addToActiveView(from);
         ForwardJoinMessage fj_msg = new ForwardJoinMessage(from, arwl);
-        for(Host h : activeView.getPeers()){
+        for (Host h : activeView.getPeers()) {
             if (!h.equals(from))
                 sendMessage(fj_msg, h);
         }
@@ -313,17 +313,37 @@ public class HyParView extends GenericProtocol {
     //If we setup the InfoTimer in the constructor, this event will be triggered periodically.
     //We are simply printing some information to present during runtime.
     private void uponInfoTime(InfoTimer timer, long timerId) {
-        StringBuilder sb = new StringBuilder("Membership Metrics:\n");
-        sb.append("active view: ").append(activeView.getPeers()).append("\n");
-        sb.append("passive view: ").append(activeView.getPeers()).append("\n");
+        StringBuilder sb = new StringBuilder("MembershipMetrics");
+        sb.append(":activeView[ ").append(activeView.getPeers()).append(" ]");
+        sb.append(":passiveView[ ").append(passiveView.getPeers()).append(" ]");
         //getMetrics returns an object with the number of events of each type processed by this protocol.
         //It may or may not be useful to you, but at least you know it exists.
-        sb.append(getMetrics());
+        sb.append(":metrics[ ").append(getMetrics()).append(" ]");;
         logger.info(sb);
     }
 
+    // Channel event triggered after metrics timeout.
     private void uponChannelMetrics(ChannelMetrics event, int channelId) {
+        StringBuilder sb = new StringBuilder("ChannelMetrics");
+        sb.append(":in[ ").append(sumChannelMetrics(event.getInConnections())).append(" ]");
+        sb.append(":oldIn[ ").append(sumChannelMetrics(event.getOldInConnections())).append(" ]");
+        sb.append(":out[ ").append(sumChannelMetrics(event.getOutConnections())).append(" ]");
+        sb.append(":oldOut[ ").append(sumChannelMetrics(event.getOldOutConnections())).append(" ]");
+        logger.info(sb);
+    }
 
+    private String sumChannelMetrics(List<ChannelMetrics.ConnectionMetrics> metrics) {
+        int msgOut = 0;
+        int msgIn = 0;
+        int totalOut = 0;
+        int totalIn = 0;
+        for (ChannelMetrics.ConnectionMetrics c : metrics) {
+            msgOut += c.getSentAppMessages();
+            totalOut += c.getSentAppBytes();
+            msgIn += c.getReceivedAppMessages();
+            totalIn += c.getReceivedAppBytes();
+        }
+        return String.format("msgOut=%d bytesOut=%d msgIn=%d bytesIn=%d", msgOut, totalOut, msgIn, totalIn);
     }
 
     /* --------------------------------- Auxiliary --------------------------------- */

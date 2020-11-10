@@ -55,11 +55,11 @@ public class Cyclon extends GenericProtocol {
      */
     public Cyclon(Properties props, Host self) throws IOException, HandlerRegistrationException {
         super(PROTOCOL_NAME, PROTOCOL_ID);
-        this.N = Integer.parseInt(props.getProperty("cln_neigh_size", "6"));
+        this.N = Integer.parseInt(props.getProperty("cln_neighbour_size", "6"));
         this.n = Integer.parseInt(props.getProperty("cln_sample_size", "3"));
         this.T = Integer.parseInt(props.getProperty("cln_shuffle_period", "2000"));
         this.L = Integer.parseInt(props.getProperty("cln_expected_average_path_length", "4"));
-        this.C = Integer.parseInt(props.getProperty("cln_convergence_time", "-1"));
+        this.C = Integer.parseInt(props.getProperty("cln_convergence_period", "-1"));
         this.L2 = Integer.parseInt(props.getProperty("cln_after_convergence_shuffle_period", "-1"));
         this.self = self;
         this.neighbours = new HashMap<>(N);
@@ -70,7 +70,7 @@ public class Cyclon extends GenericProtocol {
 
         /*--------------------Setup Channel Properties------------------------------- */
         Properties channelProps = new Properties();
-        String channel_metrics_interval = props.getProperty("cln_channel_metrics_interval", "10000");
+        String channel_metrics_interval = props.getProperty("channel_metrics_interval", "10000");
         channelProps.setProperty(TCPChannel.ADDRESS_KEY, props.getProperty("address"));
         channelProps.setProperty(TCPChannel.PORT_KEY, props.getProperty("port"));
         channelProps.setProperty(TCPChannel.METRICS_INTERVAL_KEY, channel_metrics_interval);
@@ -117,7 +117,7 @@ public class Cyclon extends GenericProtocol {
                 setupPeriodicTimer(new ShuffleTimer(), this.T, this.T);
                 if (C > 0)
                     setupTimer(new PrepareTimer(), C);
-                int pMetricsInterval = Integer.parseInt(props.getProperty("cln_protocol_metrics_interval", "10000"));
+                int pMetricsInterval = Integer.parseInt(props.getProperty("protocol_metrics_interval", "10000"));
                 if (pMetricsInterval > 0)
                     setupPeriodicTimer(new CLNMetricsTimer(), pMetricsInterval, pMetricsInterval);
             } catch (Exception e) {
@@ -429,50 +429,24 @@ public class Cyclon extends GenericProtocol {
 
     // Event triggered after info timeout.
     private void uponProtocolMetrics(CLNMetricsTimer timer, long timerId) {
-        StringBuilder sb = new StringBuilder("Metrics:");
+        StringBuilder sb = new StringBuilder("MembershipMetrics[ ");
         sb.append(" host=").append(self);
         sb.append(" neighbours=").append(neighbours.keySet().size());
         sb.append(" upConnections=").append(upConnections.size());
         sb.append(" pendingConnections=").append(pendingConnections.keySet().size());
         sb.append(" pendingMsgs=").append(pendingMsgs.keySet().size());
         sb.append(" sample=").append(sample.keySet().size());
-        sb.append(" metrics=").append(getMetrics());
+        sb.append(" metrics=").append(getMetrics()).append(" ]");
         logger.debug(sb);
     }
 
     // Channel event triggered after metrics timeout.
     private void uponChannelMetrics(ChannelMetrics event, int channelId) {
-        StringBuilder sb = new StringBuilder("ChannelMetrics:\n");
-
-        List<ChannelMetrics.ConnectionMetrics> in = event.getInConnections();
-        List<ChannelMetrics.ConnectionMetrics> oldIn = event.getOldOutConnections();
-        List<ChannelMetrics.ConnectionMetrics> out = event.getInConnections();
-        List<ChannelMetrics.ConnectionMetrics> oldOut = event.getOldOutConnections();
-
-
-        sb.append(String.format("In channels:\n\t);
-                msgIn = 0;
-        msgOut = 0;
-        totalOut = 0;
-        totalIn = 0;
-        oldMsgOut = 0;
-        oldMsgIn = 0;
-        oldTotalOut = 0;
-        oldTotalIn = 0;
-        for (ChannelMetrics.ConnectionMetrics c : out) {
-            msgOut += c.getSentAppMessages();
-            totalOut += c.getSentAppBytes();
-            msgIn += c.getReceivedAppMessages();
-            totalIn += c.getReceivedAppBytes();
-        }
-        for (ChannelMetrics.ConnectionMetrics c : oldOut) {
-            oldMsgOut += c.getSentAppMessages();
-            oldTotalOut += c.getSentAppBytes();
-            oldMsgIn += c.getReceivedAppMessages();
-            oldTotalIn += c.getReceivedAppBytes();
-        }
-        sb.append(String.format("Out channels:\n\tmsgOut=%d (%d) msgIn=%d (%d)\n\tmsgOut=%d (%d) msgIn=%d (%d) (old)",
-                msgOut, totalOut, msgIn, totalIn, oldMsgOut, oldTotalOut, oldMsgIn, oldTotalIn));
+        StringBuilder sb = new StringBuilder("ChannelMetrics");
+        sb.append(":in[ ").append(sumChannelMetrics(event.getInConnections())).append(" ]");
+        sb.append(":oldIn[ ").append(sumChannelMetrics(event.getOldInConnections())).append(" ]");
+        sb.append(":out[ ").append(sumChannelMetrics(event.getOutConnections())).append(" ]");
+        sb.append(":oldOut[ ").append(sumChannelMetrics(event.getOldOutConnections())).append(" ]");
         logger.info(sb);
     }
 
@@ -487,6 +461,6 @@ public class Cyclon extends GenericProtocol {
             msgIn += c.getReceivedAppMessages();
             totalIn += c.getReceivedAppBytes();
         }
-        return String.format("msgOut=%d (%d) msgIn=%d (%d)", msgOut, totalOut, msgIn, totalIn);
+        return String.format("msgOut=%d bytesOut=%d msgIn=%d bytesIn=%d", msgOut, totalOut, msgIn, totalIn);
     }
 }
