@@ -269,7 +269,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
     // Event triggered after info timeout.
     private void uponProtocolMetrics(PLMMetricsTimer timer, long timerId) {
-        StringBuilder sb = new StringBuilder("PlumTreeMetrics: ");
+        StringBuilder sb = new StringBuilder("Metrics: ");
         sb.append(" host=").append(myself);
         sb.append(" eagerPush=").append(eagerPushPeers.size());
         sb.append(" lazyPushPeers=").append(lazyPushPeers.size());
