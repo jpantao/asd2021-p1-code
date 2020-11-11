@@ -10,7 +10,9 @@ import protocols.broadcast.common.BroadcastRequest;
 import protocols.broadcast.common.DeliverNotification;
 import protocols.broadcast.eagerPushGossip.messages.GossipMessage;
 import protocols.broadcast.eagerPushGossip.messages.PullMessage;
+import protocols.broadcast.eagerPushGossip.timers.EPGMetricsTimer;
 import protocols.broadcast.eagerPushGossip.timers.PullTimer;
+import protocols.broadcast.plumtree.timers.GossipTimer;
 import protocols.broadcast.plumtree.timers.PLMMetricsTimer;
 import protocols.membership.common.notifications.ChannelCreated;
 import protocols.membership.common.notifications.NeighbourDown;
@@ -41,6 +43,7 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
         this.neighbours = new HashSet<>();
         this.received = new HashMap<>();
         this.channelReady = false;
+        registerTimerHandler(EPGMetricsTimer.TIMER_ID, this::uponProtocolMetrics);
         registerRequestHandler(BroadcastRequest.REQUEST_ID, this::uponBroadcastRequest);
         subscribeNotification(NeighbourUp.NOTIFICATION_ID, this::uponNeighbourUp);
         subscribeNotification(NeighbourDown.NOTIFICATION_ID, this::uponNeighbourDown);
@@ -53,7 +56,7 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
     public void init(Properties properties) throws HandlerRegistrationException, IOException {
         int pMetricsInterval = Integer.parseInt(properties.getProperty("protocol_metrics_interval", "-1"));
         if (pMetricsInterval > 0)
-            setupPeriodicTimer(new PLMMetricsTimer(), pMetricsInterval, pMetricsInterval);
+            setupPeriodicTimer(new EPGMetricsTimer(), pMetricsInterval, pMetricsInterval);
     }
 
     private void uponChannelCreated(ChannelCreated notification, short sourceProto) {
@@ -154,7 +157,7 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
     }
 
     // Event triggered after info timeout.
-    private void uponProtocolMetrics(PLMMetricsTimer timer, long timerId) {
+    private void uponProtocolMetrics(EPGMetricsTimer timer, long timerId) {
         StringBuilder sb = new StringBuilder("BroadcastMetrics[");
         sb.append(" neighbours=").append(neighbours.size());
         sb.append(" received=").append(received.keySet().size());

@@ -63,6 +63,7 @@ public class Cyclon extends GenericProtocol {
         this.L2 = Integer.parseInt(props.getProperty("cln_after_convergence_shuffle_period", "-1"));
         this.self = self;
         this.neighbours = new HashMap<>(N);
+        this.sample = new HashMap<>(n);
         this.upConnections = new HashSet<>(N);
         this.pendingMsgs = new HashMap<>(N);
         this.pendingConnections = new HashMap<>(N);
