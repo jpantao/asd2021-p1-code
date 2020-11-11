@@ -186,7 +186,8 @@ public class HyParView extends GenericProtocol {
         logger.debug("Received shuffle {} from {}", msg, from);
         int ttl = msg.getTTL() - 1;
 
-        if (msg.getTTL() == 0 || activeView.size() == 1) {
+        //TODO: change to size == 1 and find out why, for some reason, it bugs with epg broadcast
+        if (msg.getTTL() == 0 || activeView.size() <= 1) {
             Set<Host> replySample = passiveView.getRandomSubset(msg.getSample().size());
             pending.put(msg.getOrigin(), PendingConnContext.SHUFFLE_REPLY);
             openConnection(msg.getOrigin());
