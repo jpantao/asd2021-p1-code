@@ -3,10 +3,10 @@ package protocols.broadcast.eagerPushGossip.timers;
 
 import babel.generic.ProtoTimer;
 
-public class EagerPushGossipTimer extends ProtoTimer {
+public class PullTimer extends ProtoTimer {
 
     public static final short TIMER_ID = 223;
-    public EagerPushGossipTimer() {
+    public PullTimer() {
         super(TIMER_ID);
     }
 

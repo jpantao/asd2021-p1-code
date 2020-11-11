@@ -6,7 +6,6 @@ import org.apache.logging.log4j.Logger;
 import protocols.apps.BroadcastApp;
 import protocols.broadcast.eagerPushGossip.EagerPushGossipBroadcast;
 import protocols.broadcast.flood.FloodBroadcast;
-import protocols.membership.cyclon.Cyclon;
 import protocols.broadcast.plumtree.PlumTreeBroadcast;
 import protocols.membership.full.SimpleFullMembership;
 import protocols.membership.hyparview.HyParView;

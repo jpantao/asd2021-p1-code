@@ -8,7 +8,7 @@ import network.data.Host;
 import java.io.IOException;
 import java.util.UUID;
 
-public class EagerPushGossipMessage extends ProtoMessage {
+public class GossipMessage extends ProtoMessage {
     public static final short MSG_ID = 221;
 
     private final UUID mid;
@@ -24,7 +24,7 @@ public class EagerPushGossipMessage extends ProtoMessage {
                 '}';
     }
 
-    public EagerPushGossipMessage(UUID mid, Host sender, short toDeliver, byte[] content) {
+    public GossipMessage(UUID mid, Host sender, short toDeliver, byte[] content) {
         super(MSG_ID);
         this.mid = mid;
         this.sender = sender;
@@ -48,9 +48,9 @@ public class EagerPushGossipMessage extends ProtoMessage {
         return content;
     }
 
-    public static ISerializer<EagerPushGossipMessage> serializer = new ISerializer<>() {
+    public static ISerializer<GossipMessage> serializer = new ISerializer<>() {
         @Override
-        public void serialize(EagerPushGossipMessage eagerPushGossipMessage, ByteBuf out) throws IOException {
+        public void serialize(GossipMessage eagerPushGossipMessage, ByteBuf out) throws IOException {
             out.writeLong(eagerPushGossipMessage.mid.getMostSignificantBits());
             out.writeLong(eagerPushGossipMessage.mid.getLeastSignificantBits());
             Host.serializer.serialize(eagerPushGossipMessage.sender, out);
@@ -62,7 +62,7 @@ public class EagerPushGossipMessage extends ProtoMessage {
         }
 
         @Override
-        public EagerPushGossipMessage deserialize(ByteBuf in) throws IOException {
+        public GossipMessage deserialize(ByteBuf in) throws IOException {
             long firstLong = in.readLong();
             long secondLong = in.readLong();
             UUID mid = new UUID(firstLong, secondLong);
@@ -73,7 +73,7 @@ public class EagerPushGossipMessage extends ProtoMessage {
             if (size > 0)
                 in.readBytes(content);
 
-            return new EagerPushGossipMessage(mid, sender, toDeliver, content);
+            return new GossipMessage(mid, sender, toDeliver, content);
         }
     };
 }
