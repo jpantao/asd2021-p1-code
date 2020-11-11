@@ -37,14 +37,7 @@ public class EagerPushGossipsList extends ProtoMessage {
             out.writeInt(eagerPushGossipList.getMessages().size());
             for(UUID msgID: eagerPushGossipList.getMessages().keySet()) {
                 EagerPushGossipMessage eagerPushGossipMessage = eagerPushGossipList.getMessages().get(msgID);
-                out.writeLong(eagerPushGossipMessage.getMid().getMostSignificantBits());
-                out.writeLong(eagerPushGossipMessage.getMid().getLeastSignificantBits());
-                Host.serializer.serialize(eagerPushGossipMessage.getSender(), out);
-                out.writeShort(eagerPushGossipMessage.getToDeliver());
-                out.writeInt(eagerPushGossipMessage.getContent().length);
-                if (eagerPushGossipMessage.getContent().length > 0) {
-                    out.writeBytes(eagerPushGossipMessage.getContent());
-                }
+                EagerPushGossipMessage.serializer.serialize(eagerPushGossipMessage, out);
             }
         }
 
@@ -54,16 +47,7 @@ public class EagerPushGossipsList extends ProtoMessage {
             int length = in.readInt();
             Map<UUID,EagerPushGossipMessage> eagerPushGossipMessageList = new HashMap<>(length);
             for(int i = 0; i < length; i++) {
-                long firstLong = in.readLong();
-                long secondLong = in.readLong();
-                UUID mid = new UUID(firstLong, secondLong);
-                Host sender = Host.serializer.deserialize(in);
-                short toDeliver = in.readShort();
-                int size = in.readInt();
-                byte[] content = new byte[size];
-                if (size > 0)
-                    in.readBytes(content);
-                EagerPushGossipMessage msg = new EagerPushGossipMessage(mid, sender, toDeliver, content);
+                EagerPushGossipMessage msg = EagerPushGossipMessage.serializer.deserialize(in);
                 eagerPushGossipMessageList.put(msg.getMid(),msg);
             }
             return new EagerPushGossipsList(eagerPushGossipMessageList,list_sender);
