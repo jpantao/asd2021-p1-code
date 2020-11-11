@@ -31,9 +31,11 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
     private boolean channelReady;
     private final int fanout;
     private final Random rnd = new Random();
+    private boolean activated;
 
     public EagerPushGossipBroadcast(Properties properties, Host myself) throws IOException, HandlerRegistrationException {
         super(PROTOCOL_NAME, PROTOCOL_ID);
+        this.activated = false;
         this.myself = myself;
         this.neighbours = new HashSet<>();
         this.received = new HashMap<>();
@@ -52,6 +54,7 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
     }
 
     private void uponChannelCreated(ChannelCreated notification, short sourceProto) {
+        logger.info("Upon channel created");
         int cId = notification.getChannelId();
         registerSharedChannel(cId);
         registerMessageSerializer(cId, GossipMessage.MSG_ID, GossipMessage.serializer);
@@ -61,23 +64,26 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
             registerMessageHandler(cId, GossipMessage.MSG_ID, this::uponGossipMessage, this::uponEagerPushGossipFail);
             registerMessageHandler(cId, PullMessage.MSG_ID, this::uponPullMessage, this::uponEagerPushGossipsListFail);
         } catch (HandlerRegistrationException e) {
-            logger.error("Error registering message handler: " + e.getMessage());
+            logger.trace("Error registering message handler: " + e.getMessage());
             e.printStackTrace();
             System.exit(1);
         }
-
-        setupPeriodicTimer(new PullTimer(), antiEntropyTimer, antiEntropyTimer);
-
         channelReady = true;
     }
 
     private void uponBroadcastRequest(BroadcastRequest request, short sourceProto) {
+        logger.info("Upon broadcast request");
         if (!channelReady) return;
         GossipMessage msg = new GossipMessage(request.getMsgId(), request.getSender(), sourceProto, request.getMsg());
         uponGossipMessage(msg, myself, getProtoId(), -1);
     }
 
     private void uponGossipMessage(GossipMessage msg, Host from, short sourceProto, int channelId) {
+        logger.info("Upon Gossip Message");
+        if(!activated) {
+            setupPeriodicTimer(new PullTimer(), antiEntropyTimer, antiEntropyTimer);
+            activated = true;
+        }
         if (!received.containsKey(msg.getMid())) {
             triggerNotification(new DeliverNotification(msg.getMid(), msg.getSender(), msg.getContent()));
             received.put(msg.getMid(), msg);
@@ -91,24 +97,26 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
     }
 
     private void uponPullMessage(PullMessage msg, Host from, short sourceProto, int channelId) {
+        logger.info("Upon pull message");
         Set<UUID> missing = new HashSet<>(received.keySet());
         missing.removeAll(msg.getReceived());
-        logger.info("{}\n{}\n",missing, received);
         for (UUID id : missing)
             sendMessage(received.get(id), from);
     }
 
     private void uponPullTimer(PullTimer eagerPushGossipTimerTimer, long timerId) {
-        if (!neighbours.isEmpty())
+        if (!neighbours.isEmpty() && channelReady) {
+            Host host = getRandom();
             sendMessage(new PullMessage(received.keySet()), getRandom());
+        }
     }
 
     private void uponEagerPushGossipFail(ProtoMessage msg, Host host, short destProto, Throwable throwable, int channelId) {
-        logger.debug("Message {} to {} failed, reason: {}", msg, host, throwable);
+        logger.info("Message {} to {} failed, reason: {}", msg, host, throwable);
     }
 
     private void uponEagerPushGossipsListFail(ProtoMessage msg, Host host, short destProto, Throwable throwable, int channelId) {
-        logger.debug("Message {} to {} failed, reason: {}", msg, host, throwable);
+        logger.info("Message {} to {} failed, reason: {}", msg, host, throwable);
     }
 
     private void uponNeighbourUp(NeighbourUp notification, short sourceProto) {

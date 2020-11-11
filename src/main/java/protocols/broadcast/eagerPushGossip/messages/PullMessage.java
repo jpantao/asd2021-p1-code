@@ -37,7 +37,6 @@ public class PullMessage extends ProtoMessage {
 
         @Override
         public PullMessage deserialize(ByteBuf byteBuf) throws IOException {
-            Host list_sender = Host.serializer.deserialize(byteBuf);
             int size = byteBuf.readInt();
             Set<UUID> received = new HashSet<>(size);
             for (int i = 0; i < size; i++) {
