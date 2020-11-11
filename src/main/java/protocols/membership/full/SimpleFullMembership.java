@@ -244,6 +244,6 @@ public class SimpleFullMembership extends GenericProtocol {
                 c.getPeer(), c.getSentAppMessages(), c.getSentAppBytes(), c.getReceivedAppMessages(),
                 c.getReceivedAppBytes())));
         sb.setLength(sb.length() - 1);
-        //logger.info(sb);
+        logger.info(sb);
     }
 }

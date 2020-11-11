@@ -2,11 +2,11 @@ package protocols.membership.cyclon.timers;
 
 import babel.generic.ProtoTimer;
 
-public class MetricsTimer extends ProtoTimer {
+public class CLNMetricsTimer extends ProtoTimer {
 
-    public static final short TIMER_ID = 122;
+    public static final short TIMER_ID = 123;
 
-    public MetricsTimer() {
+    public CLNMetricsTimer() {
         super(TIMER_ID);
     }
 
