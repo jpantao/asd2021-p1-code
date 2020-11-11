@@ -4,8 +4,8 @@ import network.data.Host;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import protocols.apps.BroadcastApp;
+import protocols.broadcast.eagerPushGossip.EagerPushGossipBroadcast;
 import protocols.broadcast.flood.FloodBroadcast;
-import protocols.membership.cyclon.Cyclon;
 import protocols.broadcast.plumtree.PlumTreeBroadcast;
 import protocols.membership.full.SimpleFullMembership;
 import protocols.membership.hyparview.HyParView;
@@ -20,6 +20,7 @@ public class Main {
     // Broadcast protocols
     static final String FLOOD_BROADCAST = "fld";
     static final String PLUMTREE_BROADCAST = "plm";
+    static final String EAGER_PUSH_GOSSIP_BROADCAST = "epg";
 
     // Membership protocols
     static final String SIMPLEFULL_MEMBERSHIP = "smp";
@@ -66,6 +67,10 @@ public class Main {
         GenericProtocol broadcast = null;
 
         switch (broadcast_proto) {
+            case EAGER_PUSH_GOSSIP_BROADCAST:
+                broadcastApp = new BroadcastApp(myself,props, EagerPushGossipBroadcast.PROTOCOL_ID);
+                broadcast = new EagerPushGossipBroadcast(props,myself);
+                break;
             case FLOOD_BROADCAST:
                 broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);
                 broadcast = new FloodBroadcast(props, myself);
