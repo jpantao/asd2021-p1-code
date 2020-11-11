@@ -14,17 +14,7 @@ dir=$3
 if [[ ! -e $dir ]]; then
   mkdir $dir
 fi
-
 nNodes=$(ls ../logs/*.log | wc -l)
-echo "Generating reliability.csv"
-# shellcheck disable=SC2126
-echo "Total,$(grep "BroadcastApp" ../logs/*.log | grep "Sending" | wc -l)" >"$dir/totalReliability.csv"
-# shellcheck disable=SC2004
-for i in $(seq 00 $(($nNodes - 1))); do
-  # shellcheck disable=SC2126
-  echo "$i,$(grep "BroadcastApp" ../logs/node"$i".log | grep "Received" | wc -l)" >>"$dir/totalReliability.csv"
-done
-
 function generateMetrics() {
   echo "Generating $1"
   p=1
@@ -91,10 +81,8 @@ function calculateLatency() {
   echo $(($(($(($h * 60 + $m)) * 60 + $s)) * 60 + $ms))
 }
 function generateLatencyAndReliability() {
-  echo "Generating latency.csv"
-  echo "Generating reliability.csv"
-  echo "msg,latency" >"$dir/latency.csv"
-  echo "msg,delivered" >"$dir/reliability.csv"
+  echo "Generating reliability_latency.csv"
+  echo "msg,delivered,latency" >"$dir/reliability_latency.csv"
   # shellcheck disable=SC2207
   sentMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
@@ -112,8 +100,7 @@ function generateLatencyAndReliability() {
         idx=$k
       fi
     done
-    echo "$(($i + 1)),$l" >>"$dir/reliability.csv"
-    echo "$(($i + 1)),$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/latency.csv"
+    echo "$(($i + 1)),$l,$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/reliability_latency.csv"
   done
 }
 
