@@ -11,6 +11,7 @@ import protocols.broadcast.common.DeliverNotification;
 import protocols.broadcast.eagerPushGossip.messages.GossipMessage;
 import protocols.broadcast.eagerPushGossip.messages.PullMessage;
 import protocols.broadcast.eagerPushGossip.timers.PullTimer;
+import protocols.broadcast.plumtree.timers.PLMMetricsTimer;
 import protocols.membership.common.notifications.ChannelCreated;
 import protocols.membership.common.notifications.NeighbourDown;
 import protocols.membership.common.notifications.NeighbourUp;
@@ -50,7 +51,9 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
 
     @Override
     public void init(Properties properties) throws HandlerRegistrationException, IOException {
-
+        int pMetricsInterval = Integer.parseInt(properties.getProperty("protocol_metrics_interval", "-1"));
+        if (pMetricsInterval > 0)
+            setupPeriodicTimer(new PLMMetricsTimer(), pMetricsInterval, pMetricsInterval);
     }
 
     private void uponChannelCreated(ChannelCreated notification, short sourceProto) {
@@ -80,7 +83,7 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
 
     private void uponGossipMessage(GossipMessage msg, Host from, short sourceProto, int channelId) {
         logger.info("Upon Gossip Message");
-        if(!activated) {
+        if (!activated) {
             setupPeriodicTimer(new PullTimer(), antiEntropyTimer, antiEntropyTimer);
             activated = true;
         }
@@ -148,5 +151,14 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
             i++;
         }
         return null;
+    }
+
+    // Event triggered after info timeout.
+    private void uponProtocolMetrics(PLMMetricsTimer timer, long timerId) {
+        StringBuilder sb = new StringBuilder("BroadcastMetrics[");
+        sb.append(" neighbours=").append(neighbours.size());
+        sb.append(" received=").append(received.keySet().size());
+        sb.append(" metrics=").append(getMetrics()).append(" ]");
+        logger.debug(sb);
     }
 }

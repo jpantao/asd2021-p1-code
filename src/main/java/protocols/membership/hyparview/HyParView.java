@@ -147,7 +147,7 @@ public class HyParView extends GenericProtocol {
         setupPeriodicTimer(new ShuffleTimer(), this.shuffleTime, this.shuffleTime);
 
         //Setup the timer to display protocol information (also registered handler previously)
-        int pMetricsInterval = Integer.parseInt(props.getProperty("protocol_metrics_interval", "10000"));
+        int pMetricsInterval = Integer.parseInt(props.getProperty("protocol_metrics_interval", "-1"));
         if (pMetricsInterval > 0)
             setupPeriodicTimer(new InfoTimer(), pMetricsInterval, pMetricsInterval);
     }

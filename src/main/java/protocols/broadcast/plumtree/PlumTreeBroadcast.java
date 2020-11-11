@@ -55,7 +55,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
 
     @Override
     public void init(Properties properties) throws HandlerRegistrationException, IOException {
-        int pMetricsInterval = Integer.parseInt(properties.getProperty("protocol_metrics_interval", "10000"));
+        int pMetricsInterval = Integer.parseInt(properties.getProperty("protocol_metrics_interval", "-1"));
         if (pMetricsInterval > 0)
             setupPeriodicTimer(new PLMMetricsTimer(), pMetricsInterval, pMetricsInterval);
     }

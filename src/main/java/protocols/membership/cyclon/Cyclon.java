@@ -117,7 +117,7 @@ public class Cyclon extends GenericProtocol {
                 setupPeriodicTimer(new ShuffleTimer(), this.T, this.T);
                 if (C > 0)
                     setupTimer(new PrepareTimer(), C);
-                int pMetricsInterval = Integer.parseInt(props.getProperty("protocol_metrics_interval", "10000"));
+                int pMetricsInterval = Integer.parseInt(props.getProperty("protocol_metrics_interval", "-1"));
                 if (pMetricsInterval > 0)
                     setupPeriodicTimer(new CLNMetricsTimer(), pMetricsInterval, pMetricsInterval);
             } catch (Exception e) {

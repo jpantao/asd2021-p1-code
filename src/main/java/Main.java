@@ -9,6 +9,7 @@ import protocols.broadcast.flood.FloodBroadcast;
 import protocols.broadcast.plumtree.PlumTreeBroadcast;
 import protocols.membership.full.SimpleFullMembership;
 import protocols.membership.hyparview.HyParView;
+import protocols.membership.cyclon.Cyclon;
 import utils.InterfaceToIp;
 
 import java.net.InetAddress;
@@ -68,8 +69,8 @@ public class Main {
 
         switch (broadcast_proto) {
             case EAGER_PUSH_GOSSIP_BROADCAST:
-                broadcastApp = new BroadcastApp(myself,props, EagerPushGossipBroadcast.PROTOCOL_ID);
-                broadcast = new EagerPushGossipBroadcast(props,myself);
+                broadcastApp = new BroadcastApp(myself, props, EagerPushGossipBroadcast.PROTOCOL_ID);
+                broadcast = new EagerPushGossipBroadcast(props, myself);
                 break;
             case FLOOD_BROADCAST:
                 broadcastApp = new BroadcastApp(myself, props, FloodBroadcast.PROTOCOL_ID);

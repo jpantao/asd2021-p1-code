@@ -28,8 +28,8 @@ function generateMetrics() {
         p=15
       fi
       if [ $3 = "eagerpush" ]; then
-        echo "${m}" >$1
-        p=9
+        echo "neighbours,received,${m}" >$1
+        p=11
       fi
     elif [ $1 = "membershipProtocolMetrics.csv" ]; then
       if [ $3 = "hyparview" ]; then
