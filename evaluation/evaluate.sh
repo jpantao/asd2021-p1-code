@@ -27,7 +27,7 @@ function generateMetrics() {
         echo "eagerPush,lazyPushPeers,received,missing,lazyQueue,gossipTimers,${m}" >$1
         p=15
       fi
-      if [ $3 = "eagerpush" ]; then
+      if [ $3 = "eagerpushgossip" ]; then
         echo "neighbours,received,${m}" >$1
         p=11
       fi
@@ -62,17 +62,28 @@ function generateMetrics() {
   done
 }
 
+function calculateLatency() {
+  # shellcheck disable=SC2207
+  s=($(echo $1 | tr ":" "\n" | sed 's/^0*//'))
+  # shellcheck disable=SC2207
+  r=($(echo $2 | tr ":" "\n" | sed 's/^0*//'))
+  h=$((${r[0]} - ${s[0]}))
+  m=$((${r[1]} - ${s[1]}))
+  s=$((${r[2]} - ${s[2]}))
+  ms=$((${r[3]} - ${s[3]}))
+  echo $(($(($(($h * 60 + $m)) * 60 + $s)) * 60 + $ms))
+}
 function generateLatency() {
   echo "Generating latency.csv"
-  echo "sent,received" >latency.csv
+  echo "sent,received,latency" >latency.csv
   # shellcheck disable=SC2207
   sentMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
-  sentLatency=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | grep -o -P 'I.{0,9}' | grep : | tr -d "I["))
+  sentLatency=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
   # shellcheck disable=SC2207
   receivedMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Received" | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
-  receivedLatency=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Received" | grep -o -P 'I.{0,9}' | grep : | tr -d "I["))
+  receivedLatency=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Received" | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
   for ((i = 0; i < ${#sentMids[@]}; i++)); do
     idx=0
     for ((k = 0, l = 0; k < ${#receivedMids[@]} && l < nNodes; k++)); do
@@ -81,8 +92,7 @@ function generateLatency() {
         idx=$k
       fi
     done
-    echo "${sentLatency[$i]},${receivedLatency[$idx]}"
-    echo "${sentLatency[$i]},${receivedLatency[$idx]}" >>latency.csv
+    echo "${sentLatency[$i]},${receivedLatency[$idx]},$(calculateLatency ${sentLatency[$i]} ${receivedLatency[$idx]})" >>latency.csv
   done
 }
 
