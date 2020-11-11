@@ -12,17 +12,17 @@ broadcast=$1
 membership=$2
 dir=$3
 if [[ ! -e $dir ]]; then
-    mkdir $dir
+  mkdir $dir
 fi
 
 nNodes=$(ls ../logs/*.log | wc -l)
 echo "Generating reliability.csv"
 # shellcheck disable=SC2126
-echo "Total,$(grep "BroadcastApp" ../logs/*.log | grep "Sending" | wc -l)" >"$dir/reliability.csv"
+echo "Total,$(grep "BroadcastApp" ../logs/*.log | grep "Sending" | wc -l)" >"$dir/totalReliability.csv"
 # shellcheck disable=SC2004
 for i in $(seq 00 $(($nNodes - 1))); do
   # shellcheck disable=SC2126
-  echo "$i,$(grep "BroadcastApp" ../logs/node"$i".log | grep "Received" | wc -l)" >>"$dir/reliability.csv"
+  echo "$i,$(grep "BroadcastApp" ../logs/node"$i".log | grep "Received" | wc -l)" >>"$dir/totalReliability.csv"
 done
 
 function generateMetrics() {
@@ -90,9 +90,11 @@ function calculateLatency() {
   # shellcheck disable=SC2004
   echo $(($(($(($h * 60 + $m)) * 60 + $s)) * 60 + $ms))
 }
-function generateLatency() {
+function generateLatencyAndReliability() {
   echo "Generating latency.csv"
-  echo "sent,received,latency" >"$dir/latency.csv"
+  echo "Generating reliability.csv"
+  echo "msg,latency" >"$dir/latency.csv"
+  echo "msg,delivered" >"$dir/reliability.csv"
   # shellcheck disable=SC2207
   sentMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
@@ -103,17 +105,19 @@ function generateLatency() {
   receivedLatency=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Received" | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
   for ((i = 0; i < ${#sentMids[@]}; i++)); do
     idx=0
-    for ((k = 0, l = 0; k < ${#receivedMids[@]} && l < nNodes; k++)); do
+    l=0
+    for ((k = 0; k < ${#receivedMids[@]} && l < nNodes; k++)); do
       if [[ "${receivedMids[$k]}" == "${sentMids[$i]}" ]]; then
         l=$((l + 1))
         idx=$k
       fi
     done
-    echo "${sentLatency[$i]},${receivedLatency[$idx]},$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/latency.csv"
+    echo "$(($i + 1)),$l" >>"$dir/reliability.csv"
+    echo "$(($i + 1)),$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/latency.csv"
   done
 }
 
 generateMetrics channelMetrics.csv 'ChannelMetrics.*'
 generateMetrics broadcastProtocolMetrics.csv 'BroadcastMetrics.*' $broadcast
 generateMetrics membershipProtocolMetrics.csv 'MembershipMetrics.*' $membership
-generateLatency
+generateLatencyAndReliability
