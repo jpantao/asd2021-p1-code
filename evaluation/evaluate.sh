@@ -14,7 +14,7 @@ for i in $(seq 00 $(($nNodes - 1))); do
   echo "$i,$(grep "BroadcastApp" ../logs/node"$i".log | grep "Received" | wc -l)" >>reliability.csv
 done
 
-function saveMetrics() {
+function generateMetrics() {
   echo "Generating $1"
   p=1
   if [ $1 = "channelMetrics.csv" ]; then
@@ -62,6 +62,31 @@ function saveMetrics() {
   done
 }
 
-saveMetrics channelMetrics.csv 'ChannelMetrics.*'
-saveMetrics broadcastProtocolMetrics.csv 'BroadcastMetrics.*' $broadcast
-saveMetrics membershipProtocolMetrics.csv 'MembershipMetrics.*' $membership
+function generateLatency() {
+  echo "Generating latency.csv"
+  echo "sent,received" >latency.csv
+  # shellcheck disable=SC2207
+  sentMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | tr " " "\n" | grep '.\{36\}'))
+  # shellcheck disable=SC2207
+  sentLatency=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | grep -o -P 'I.{0,9}' | grep : | tr -d "I["))
+  # shellcheck disable=SC2207
+  receivedMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Received" | tr " " "\n" | grep '.\{36\}'))
+  # shellcheck disable=SC2207
+  receivedLatency=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Received" | grep -o -P 'I.{0,9}' | grep : | tr -d "I["))
+  for ((i = 0; i < ${#sentMids[@]}; i++)); do
+    idx=0
+    for ((k = 0, l = 0; k < ${#receivedMids[@]} && l < nNodes; k++)); do
+      if [[ "${receivedMids[$k]}" == "${sentMids[$i]}" ]]; then
+        l=$((l + 1))
+        idx=$k
+      fi
+    done
+    echo "${sentLatency[$i]},${receivedLatency[$idx]}"
+    echo "${sentLatency[$i]},${receivedLatency[$idx]}" >>latency.csv
+  done
+}
+
+generateMetrics channelMetrics.csv 'ChannelMetrics.*'
+generateMetrics broadcastProtocolMetrics.csv 'BroadcastMetrics.*' $broadcast
+generateMetrics membershipProtocolMetrics.csv 'MembershipMetrics.*' $membership
+generateLatency
