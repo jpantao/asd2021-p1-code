@@ -1,10 +1,10 @@
 #!/bin/bash
 
 jar="target/asdProj.jar"
-config="config.properties"
-
 
 nNodes=$1
+config=$2
+
 port=5000
 shift
 
