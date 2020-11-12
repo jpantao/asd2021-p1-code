@@ -82,7 +82,7 @@ function calculateLatency() {
 }
 function generateLatencyAndReliability() {
   echo "Generating reliability_latency.csv"
-  echo "msg,delivered,latency" >"$dir/reliability_latency.csv"
+  echo "delivered,latency" >"$dir/reliability_latency.csv"
   # shellcheck disable=SC2207
   sentMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
@@ -100,7 +100,7 @@ function generateLatencyAndReliability() {
         idx=$k
       fi
     done
-    echo "$(($i + 1)),$l,$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/reliability_latency.csv"
+    echo "$l,$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/reliability_latency.csv"
   done
 }
 
