@@ -34,3 +34,6 @@ payload={big,small}
 		(22) - slow,small
 		(23) - fast,big
 		(24) - fast,big
+		
+24 runs * 3 ensaios * (30secs preparação + 1min duracao) = 36mins duração + 72mins duração ≃ 1h48mins de runtime
+
