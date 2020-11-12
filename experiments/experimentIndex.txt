@@ -1,0 +1,36 @@
+broadcast={fast,slow}
+payload={big,small}
+
+[1-8] - cyclon normal
+	[1-4] - plumtree 
+		(1) - fast,small
+		(2) - slow,small
+		(3) - fast,big
+		(4) - fast,big
+	[5-8] - eagerPushGossip 
+		(5) - fast,small
+		(6) - slow,small
+		(7) - fast,big
+		(8) - fast,big
+[9-16] - cyclon convergence
+	[9-12] - plumtree 
+		(9) - fast,small
+		(10) - slow,small
+		(11) - fast,big
+		(12) - fast,big
+	[13-16] - eagerPushGossip 
+		(13) - fast,small
+		(14) - slow,small
+		(15) - fast,big
+		(16) - fast,big
+[17-24] - hyperview
+	[17-12] - plumtree 
+		(17) - fast,small
+		(18) - slow,small
+		(19) - fast,big
+		(20) - fast,big
+	[21-24] - eagerPushGossip 
+		(21) - fast,small
+		(22) - slow,small
+		(23) - fast,big
+		(24) - fast,big
