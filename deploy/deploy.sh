@@ -1,5 +1,6 @@
-nNodes=$1
-shift
+nNodes=$2
+experiment=$1
+shift 2
 
 n_nodes=$(uniq $OAR_FILE_NODES | wc -l)
 
@@ -76,7 +77,7 @@ echo "Executing java"
 printf "%.2d.. " 0
 
 node=$(nextnode 0)
-oarsh -n $node docker exec -d node-00 ./start.sh 0 "$@"
+oarsh -n $node docker exec -d node-00 ./start.sh $experiment 0 "$@"
 
 sleep 1
 
@@ -87,7 +88,7 @@ for i in $(seq 01 $(($nNodes - 1))); do
   if [ $((($i + 1) % 10)) -eq 0 ]; then
     echo ""
   fi
-  oarsh -n $node docker exec -d node-${ii} ./start.sh $i contact=node-00:10000 "$@"
+  oarsh -n $node docker exec -d node-${ii} ./start.sh $experiment $i contact=node-00:10000 "$@"
   sleep 1
 done
 echo ""

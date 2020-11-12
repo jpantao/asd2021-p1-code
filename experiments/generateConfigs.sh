@@ -1,5 +1,5 @@
 #!/bin/bash
 
 for experiment in $(seq 24); do
-	config>"./$experiment/start$experiment.sh"
+	cp config.properties "config$experiment.properties"
 done

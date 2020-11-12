@@ -7,8 +7,8 @@ RUN apk add --no-cache \
 
 WORKDIR code
 ADD docker/* ./
+ADD configs/* ./
 ADD log4j2.xml .
-ADD config.properties .
 ADD target/asdProj.jar .
 
 
