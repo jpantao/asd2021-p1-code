@@ -15,40 +15,30 @@ if [[ ! -e $dir ]]; then
   mkdir $dir
 fi
 nNodes=$(ls ../logs/*.log | wc -l)
-function generateMetrics() {
-  echo "Generating $1"
+function generateProtocolMetrics() {
+  echo "Generating $2_Metrics.csv"
+  filename="$dir/$2_Metrics.csv"
   p=1
-  if [ $1 = "channelMetrics.csv" ]; then
-    echo "msgOut,bytesOut,msgIn,bytesIn" >"$dir/$1"
-    p=4
-  else
-    m="totalEvents,messagesIn,messagesFailed,messagesSent,timers,notifications,requests,replies,customChannelEvents"
-    if [ $1 = "broadcastProtocolMetrics.csv" ]; then
-      if [ $3 = "plumtree" ]; then
-        echo "eagerPush,lazyPushPeers,received,missing,lazyQueue,gossipTimers,${m}" >"$dir/$1"
-        p=15
-      fi
-      if [ $3 = "eagerpushgossip" ]; then
-        echo "neighbours,received,${m}" >"$dir/$1"
-        p=11
-      fi
-    elif [ $1 = "membershipProtocolMetrics.csv" ]; then
-      if [ $3 = "hyparview" ]; then
-        echo "activeView,passiveView,totalEvents,${m}" >"$dir/$1"
-        p=11
-      fi
-      if [ $3 = "cyclon" ]; then
-        echo "neighbours,upConnections,pendingConnections,pendingMsgs,sample,${m}" >"$dir/$1"
-        p=14
-      fi
-    fi
+  m="totalEvents,messagesIn,messagesFailed,messagesSent,timers,notifications,requests,replies,customChannelEvents"
+  if [ $2 = "plumtree" ]; then
+    echo "eagerPush,lazyPushPeers,received,missing,lazyQueue,gossipTimers,${m}" >"$filename"
+    p=15
+  elif [ $2 = "eagerpushgossip" ]; then
+    echo "neighbours,received,${m}" >"$filename"
+    p=11
+  elif [ $2 = "hyparview" ]; then
+    echo "activeView,passiveView,totalEvents,${m}" >"$filename"
+    p=11
+  elif [ $2 = "cyclon" ]; then
+    echo "neighbours,upConnections,pendingConnections,pendingMsgs,sample,${m}" >"$filename"
+    p=14
   fi
   declare -a metrics
   i=0
   IFS='
   '
   # shellcheck disable=SC2013
-  for x in $(cat ../logs/*.log | grep -o "$2" | cut -f2- -d:); do
+  for x in $(cat ../logs/*.log | grep -o "$1" | cut -f2- -d:); do
     for k in $(echo "$x" | tr ";" "\n" | tr "{" "\n" | tr -d "}" | cut -f2- -d= | grep "[0-9]" | tr -d ","); do
       i=$((i + 1))
       metrics[i]=$k
@@ -58,7 +48,32 @@ function generateMetrics() {
   for i in "${!metrics[@]}"; do
     result="${result}${metrics[i]},"
     if [[ $((i % p)) == 0 ]]; then
-      echo $result >>"$dir/$1"
+      echo $result >>"$filename"
+      result=""
+    fi
+  done
+}
+
+function generateChannelMetrics() {
+  echo "Generating $1_$2_ChannelMetrics.csv"
+  filename="$dir/$1_$2_ChannelMetrics.csv"
+  echo "MsgOut,BytesOut,MsgIn,BytesIn" >"$filename"
+  declare -a metrics
+  i=0
+  IFS='
+  '
+  # shellcheck disable=SC2013
+  for x in $(cat ../logs/*.log | grep -o "ChannelMetrics.*" | cut -f2- -d:); do
+    for k in $(echo "$x" | tr ";" "\n" | tr "{" "\n" | tr -d "}" | cut -f2- -d= | grep "[0-9]" | tr -d ","); do
+      i=$((i + 1))
+      metrics[i]=$k
+    done
+  done
+  unset IFS
+  for i in "${!metrics[@]}"; do
+    result="${result}${metrics[i]},"
+    if [[ $((i % 4)) == 0 ]]; then
+      echo $result >>"$filename"
       result=""
     fi
   done
@@ -81,8 +96,8 @@ function calculateLatency() {
   echo $(($(($(($h * 60 + $m)) * 60 + $s)) * 60 + $ms))
 }
 function generateLatencyAndReliability() {
-  echo "Generating reliability_latency.csv"
-  echo "delivered,latency" >"$dir/reliability_latency.csv"
+  echo "Generating $1_$2_reliability_latency.csv"
+  echo "Reliability,Latency" >"$dir/$1_$2_reliabilityLatency.csv"
   # shellcheck disable=SC2207
   sentMids=($(cat ../logs/node*.log | grep "BroadcastApp" | grep "Sending" | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
@@ -100,11 +115,11 @@ function generateLatencyAndReliability() {
         idx=$k
       fi
     done
-    echo "$l,$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/reliability_latency.csv"
+    echo "$(($l / nNodes * 100)),$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/$1_$2_reliabilityLatency.csv"
   done
 }
 
-generateMetrics channelMetrics.csv 'ChannelMetrics.*'
-generateMetrics broadcastProtocolMetrics.csv 'BroadcastMetrics.*' $broadcast
-generateMetrics membershipProtocolMetrics.csv 'MembershipMetrics.*' $membership
-generateLatencyAndReliability
+generateChannelMetrics $membership $broadcast
+generateLatencyAndReliability $membership $broadcast
+#generateProtocolMetrics 'BroadcastMetrics.*' $broadcast
+#generateProtocolMetrics 'MembershipMetrics.*' $membership
