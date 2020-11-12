@@ -2,4 +2,4 @@
 
 idx=$1
 shift
-java -D logFilename=logs/node$idx -cp asdProj.jar Main -conf config.properties "$@" &> /proc/1/fd/1
+java -D logFilename=logs/14/node$idx -cp asdProj.jar Main -conf config14.properties "$@" &> /proc/1/fd/1
