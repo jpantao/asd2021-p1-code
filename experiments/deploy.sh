@@ -1,12 +1,12 @@
 experiment=$1
 nNodes=$2
 start="./$experiment/start$experiment.sh"
-shift
+shift 2
 
 n_nodes=$(uniq $OAR_FILE_NODES | wc -l)
 
 function nextnode {
-  local idx=$(($2 % n_nodes))
+  local idx=$(($1 % n_nodes))
   local i=0
   for host in $(uniq $OAR_FILE_NODES); do
     if [ $i -eq $idx ]; then
