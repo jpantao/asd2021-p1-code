@@ -3,10 +3,14 @@
 jar="target/asdProj.jar"
 
 nNodes=$1
-config=$2
+shift
+config=$1
+shift
 
 port=5000
-shift
+
+echo "Cleaning logs..."
+rm logs/*.log
 
 echo "Launching $nNodes local nodes..."
 
@@ -29,7 +33,7 @@ echo ""
 echo "Done... All processes finished."
 echo ""
 # shellcheck disable=SC2126
-echo "Broadcasts sent: $(grep "BroadcastApp" logs/*.log | grep "Sending" |wc -l)"
+echo "Broadcasts sent: $(grep "BroadcastApp" logs/*.log | grep "Sending" | wc -l)"
 # shellcheck disable=SC2004
 for i in $(seq 00 $(($nNodes - 1))); do
   # shellcheck disable=SC2126

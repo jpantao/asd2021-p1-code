@@ -112,8 +112,7 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
 
     private void uponPullTimer(PullTimer eagerPushGossipTimerTimer, long timerId) {
         if (!neighbours.isEmpty() && channelReady) {
-            Host host = getRandom();
-            sendMessage(new PullMessage(received.keySet()), getRandom());
+            sendMessage(new PullMessage(new HashSet<>(received.keySet())), getRandom());
         }
     }
 
