@@ -21,7 +21,7 @@
 
         <Logger level="info" name="io.netty"/>
         <Logger level="info" name="network"/>
-        <Logger level="debug" name="channel"/>
+        <Logger level="info" name="channel"/>
         <Logger level="info" name="babel"/>
 
 
