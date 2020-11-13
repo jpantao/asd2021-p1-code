@@ -1,6 +1,9 @@
-broadcast={fast,slow}
-payload={big,small}
-
+broadcast={fast,slow}={3000,10000}
+payload={big,small}={20,2000}
+20
+2000
+3000
+10000
 [1-8] - cyclon normal
 	[1-4] - plumtree 
 		(1) - fast,small
@@ -37,8 +40,4 @@ payload={big,small}
 		
 24 runs * 3 ensaios * (1min preparação + 2min duracao + 1min parar) = 4h48mins
 
-20
-2000
-3000
-10000
 
