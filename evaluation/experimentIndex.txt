@@ -1,5 +1,5 @@
-broadcast={fast,slow}={3000,10000}
-payload={big,small}={20,2000}
+payload={big,small}={1000,10000}
+broadcast={fast,slow}={2000,10000}
 20
 2000
 3000
@@ -9,34 +9,34 @@ payload={big,small}={20,2000}
 		(1) - fast,small
 		(2) - slow,small
 		(3) - fast,big
-		(4) - fast,big
+		(4) - slow,big
 	[5-8] - eagerPushGossip 
 		(5) - fast,small
 		(6) - slow,small
 		(7) - fast,big
-		(8) - fast,big
+		(8) - slow,big
 [9-16] - cyclon convergence
 	[9-12] - plumtree 
 		(9) - fast,small
 		(10) - slow,small
 		(11) - fast,big
-		(12) - fast,big
+		(12) - slow,big
 	[13-16] - eagerPushGossip 
 		(13) - fast,small
 		(14) - slow,small
 		(15) - fast,big
-		(16) - fast,big
+		(16) - slow,big
 [17-24] - hyperview
 	[17-12] - plumtree 
 		(17) - fast,small
 		(18) - slow,small
 		(19) - fast,big
-		(20) - fast,big
+		(20) - slow,big
 	[21-24] - eagerPushGossip 
 		(21) - fast,small
 		(22) - slow,small
 		(23) - fast,big
-		(24) - fast,big
+		(24) - slow,big
 		
 24 runs * 3 ensaios * (1min preparação + 2min duracao + 1min parar) = 4h48mins
 

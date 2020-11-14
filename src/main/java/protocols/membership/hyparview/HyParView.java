@@ -198,7 +198,7 @@ public class HyParView extends GenericProtocol {
             Set<Host> replySample = passiveView.getRandomSubset(msg.getSample().size());
             pending.put(msg.getOrigin(), PendingConnContext.SHUFFLE_REPLY);
             openConnection(msg.getOrigin());
-            sendMessage(new ShuffleReplyMessage(replySample), msg.getOrigin());
+            sendMessage(new ShuffleReplyMessage(new HashSet<>(replySample)), msg.getOrigin());
             addToPassiveConsidering(msg.getSample(), replySample);
             logger.debug("Shuffle accepted, waiting for connection to {}, sending {}", msg.getOrigin(), replySample);
         } else {
