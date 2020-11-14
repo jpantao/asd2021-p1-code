@@ -127,14 +127,14 @@ public class EagerPushGossipBroadcast extends GenericProtocol {
     private void uponNeighbourUp(NeighbourUp notification, short sourceProto) {
         for (Host h : notification.getNeighbours()) {
             neighbours.add(h);
-            //logger.trace("New neighbour: " + h);
+            logger.trace("New neighbour: " + h);
         }
     }
 
     private void uponNeighbourDown(NeighbourDown notification, short sourceProto) {
         for (Host h : notification.getNeighbours()) {
             neighbours.remove(h);
-            //logger.trace("Neighbour down: " + h);
+            logger.trace("Neighbour down: " + h);
         }
     }
 

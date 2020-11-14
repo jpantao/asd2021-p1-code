@@ -220,7 +220,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
     private void uponNeighbourUp(NeighbourUp notification, short sourceProto) {
         for (Host h : notification.getNeighbours()) {
             eagerPushPeers.add(h);
-            //logger.debug("PlumTree: New neighbour: " + h);
+            logger.trace("New neighbour: " + h);
         }
     }
 
@@ -228,7 +228,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         for (Host h : notification.getNeighbours()) {
             eagerPushPeers.remove(h);
             lazyPushPeers.remove(h);
-            //logger.debug("PlumTree: Neighbour down: " + h);
+            logger.trace("Neighbour down: " + h);
             missing.removeIf(m -> m.getSender().equals(h));
         }
     }
