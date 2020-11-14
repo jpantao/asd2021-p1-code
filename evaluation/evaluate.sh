@@ -5,7 +5,7 @@ if [[ -z $1 || -z $2 ]]; then
   exit 1
 fi
 dir="csvs/$1/run$2"
-experimentPath="../logs/run$2/$1/*.log"
+experimentPath="./run$2/$1/*.log"
 if [[ ! -e "csvs" ]]; then
   mkdir "csvs"
 fi
