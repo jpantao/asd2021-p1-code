@@ -238,8 +238,6 @@ public class PlumTreeBroadcast extends GenericProtocol {
         //logger.debug("\nGossip fail " + msg.getMid() + " myself: " + myself
         //        + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
         //        " lazyPushPeers: " + lazyPushPeers.toString());
-        /*if(lazyPushPeers.size() == 0)
-            sendMessage(msg,host);*/
     }
 
     private void uponIHaveMessageFail(IHaveMessage msg, Host host, short destProto,
@@ -247,7 +245,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         //logger.debug("\nIHave Message fail " + msg.getMid() + " myself: " + myself
         //        + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
         //        " lazyPushPeers: " + lazyPushPeers.toString());
-        //sendMessage(msg,host);
+        sendMessage(msg,host);
     }
 
     private void uponPruneMessageFail(PruneMessage msg, Host host, short destProto,
@@ -255,7 +253,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         //logger.debug("\nPrune Message fail " + " myself: " + myself
         //        + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
         //        " lazyPushPeers: " + lazyPushPeers.toString());
-        //sendMessage(msg,host);
+        sendMessage(msg,host);
     }
 
     private void uponGraftMessageFail(GraftMessage msg, Host host, short destProto,
@@ -263,7 +261,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         //logger.debug("\nGraft Message fail " + msg.getMid() + " myself: " + myself
         //        + "host: " + host + " eagerPushPeers: " + eagerPushPeers.toString() +
         //        " lazyPushPeers: " + lazyPushPeers.toString());
-        //sendMessage(msg,host);
+        sendMessage(msg,host);
     }
 
 
