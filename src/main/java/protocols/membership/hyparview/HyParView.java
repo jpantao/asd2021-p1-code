@@ -135,9 +135,9 @@ public class HyParView extends GenericProtocol {
                 Host contactHost = new Host(InetAddress.getByName(hostElems[0]), Short.parseShort(hostElems[1]));
                 pending.put(contactHost, PendingConnContext.JOIN);
                 openConnection(contactHost);
-                logger.debug("Establishing connection to contact {}...", contactHost);
+                //logger.debug("Establishing connection to contact {}...", contactHost);
             } catch (Exception e) {
-                logger.error("Invalid contact on configuration: {}", props.getProperty("contact"));
+                //logger.error("Invalid contact on configuration: {}", props.getProperty("contact"));
                 e.printStackTrace();
                 System.exit(-1);
             }
@@ -154,7 +154,7 @@ public class HyParView extends GenericProtocol {
     /*--------------------------------- Messages ----------------------------------- */
 
     private void uponJoin(JoinMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("Received join {} from {}", msg, from);
+        //logger.debug("Received join {} from {}", msg, from);
         addToActiveView(from);
         ForwardJoinMessage fj_msg = new ForwardJoinMessage(from, arwl);
         for (Host h : activeView.getPeers()) {
@@ -164,7 +164,7 @@ public class HyParView extends GenericProtocol {
     }
 
     private void uponForwardJoin(ForwardJoinMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("Received forward join {} from {}", msg, from);
+        //logger.debug("Received forward join {} from {}", msg, from);
         if (msg.getTTL() == 0 || activeView.size() == 1) {
             addToActiveView(msg.getNewNode());
         } else {
@@ -176,7 +176,7 @@ public class HyParView extends GenericProtocol {
     }
 
     private void uponNeighbor(NeighborMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("Received neighbor request {} from {}", msg, from);
+        //logger.debug("Received neighbor request {} from {}", msg, from);
         if (activeView.contains(from))
             return;
         if (!activeView.isFull() || msg.getPriority() == NeighborMessage.HIGH)
@@ -184,13 +184,13 @@ public class HyParView extends GenericProtocol {
     }
 
     private void uponDisconnect(DisconnectMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("Received disconnect {} from {}", msg, from);
+        //logger.debug("Received disconnect {} from {}", msg, from);
         dropNeighbor(from);
         tryNewNeighbor();
     }
 
     private void uponShuffle(ShuffleMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("Received shuffle {} from {}", msg, from);
+        //logger.debug("Received shuffle {} from {}", msg, from);
         int ttl = msg.getTTL() - 1;
 
         //TODO: change to size == 1 and find out why, for some reason, it bugs with epg broadcast
@@ -200,17 +200,17 @@ public class HyParView extends GenericProtocol {
             openConnection(msg.getOrigin());
             sendMessage(new ShuffleReplyMessage(new HashSet<>(replySample)), msg.getOrigin());
             addToPassiveConsidering(msg.getSample(), replySample);
-            logger.debug("Shuffle accepted, waiting for connection to {}, sending {}", msg.getOrigin(), replySample);
+            //logger.debug("Shuffle accepted, waiting for connection to {}, sending {}", msg.getOrigin(), replySample);
         } else {
             //logger.info("-------------------------------------> {}", activeView.size());
             Host forward = activeView.getRandomExcluding(from);
             sendMessage(new ShuffleMessage(msg.getSample(), ttl, msg.getOrigin()), forward);
-            logger.debug("Shuffle forwarded to {}", forward);
+            //logger.debug("Shuffle forwarded to {}", forward);
         }
     }
 
     private void uponShuffleReply(ShuffleReplyMessage msg, Host from, short sourceProto, int channelId) {
-        logger.debug("Received shuffle reply {} from {}", msg, from);
+        //logger.debug("Received shuffle reply {} from {}", msg, from);
         Set<Host> sample = msg.getSample();
         sample.remove(self);
         addToPassiveConsidering(sample, this.currentSample);
@@ -220,7 +220,7 @@ public class HyParView extends GenericProtocol {
     private void uponMsgFail(ProtoMessage msg, Host host, short destProto,
                              Throwable throwable, int channelId) {
         //If a message fails to be sent, for whatever reason, log the message and the reason
-        logger.error("Message {} to {} failed, reason: {}", msg, host, throwable);
+        //logger.error("Message {} to {} failed, reason: {}", msg, host, throwable);
     }
 
     /* -------------------------------- Timers ------------------------------------- */
@@ -233,14 +233,14 @@ public class HyParView extends GenericProtocol {
         this.currentSample.addAll(activeView.getRandomSubset(this.shuffle_ka));
         this.currentSample.addAll(passiveView.getRandomSubset(this.shuffle_kp));
         sendMessage(new ShuffleMessage(this.currentSample, this.shuffle_ttl, self), activeView.getRandom());
-        logger.debug("Shuffle sample sent: {}", this.currentSample);
+        //logger.debug("Shuffle sample sent: {}", this.currentSample);
     }
 
     /* -------------------------------- TCPChannel Events ------------------------- */
 
     private void uponOutConnectionUp(OutConnectionUp event, int channelId) {
         Host peer = event.getNode();
-        logger.debug("Connection to {} is up", peer);
+        //logger.debug("Connection to {} is up", peer);
 
         PendingConnContext context = pending.remove(peer);
         if (context == null)
@@ -267,15 +267,15 @@ public class HyParView extends GenericProtocol {
                     break;
                 outConn.remove(peer);
                 closeConnection(peer);
-                logger.debug("Temporary connection to {} established", peer);
+                //logger.debug("Temporary connection to {} established", peer);
                 break;
             default:
-                logger.error("Undisclosed pending connection context: {}", context);
+                //logger.error("Undisclosed pending connection context: {}", context);
         }
     }
 
     private void uponOutConnectionDown(OutConnectionDown event, int channelId) {
-        logger.debug("Connection to {} is down cause {}", event.getNode(), event.getCause());
+        //logger.debug("Connection to {} is down cause {}", event.getNode(), event.getCause());
 
         outConn.remove(event.getNode());
         if (!activeView.contains(event.getNode()))
@@ -289,7 +289,7 @@ public class HyParView extends GenericProtocol {
 
 
     private void uponOutConnectionFailed(OutConnectionFailed<ProtoMessage> event, int channelId) {
-        logger.error("Connection to {} failed, reason: {}", event.getNode(), event.getCause());
+        //logger.error("Connection to {} failed, reason: {}", event.getNode(), event.getCause());
 
         Host peer = event.getNode();
         PendingConnContext context = pending.remove(peer);
@@ -303,18 +303,18 @@ public class HyParView extends GenericProtocol {
 
         if(event.getPendingMessages().isEmpty())
            return;
-        logger.error("Pending lost messages:");
-        for (ProtoMessage msg : event.getPendingMessages())
-            logger.error("{}", msg);
+        //logger.error("Pending lost messages:");
+        //for (ProtoMessage msg : event.getPendingMessages())
+            //logger.error("{}", msg);
 
     }
 
     private void uponInConnectionUp(InConnectionUp event, int channelId) {
-        logger.trace("Connection from {} is up", event.getNode());
+        //logger.trace("Connection from {} is up", event.getNode());
     }
 
     private void uponInConnectionDown(InConnectionDown event, int channelId) {
-        logger.trace("Connection from {} is down, cause: {}", event.getNode(), event.getCause());
+        //logger.trace("Connection from {} is down, cause: {}", event.getNode(), event.getCause());
     }
 
     /* --------------------------------- Metrics ----------------------------------- */
@@ -328,7 +328,7 @@ public class HyParView extends GenericProtocol {
         //getMetrics returns an object with the number of events of each type processed by this protocol.
         //It may or may not be useful to you, but at least you know it exists.
         sb.append(" metrics=").append(getMetrics()).append(" ]");;
-        logger.info(sb);
+        //logger.debug(sb);
     }
 
     // Channel event triggered after metrics timeout.
@@ -369,7 +369,7 @@ public class HyParView extends GenericProtocol {
         outConn.remove(toDrop);
         closeConnection(toDrop);
         passiveView.add(toDrop);
-        logger.debug("Dropped: {} -> {}", toDrop, rem);
+        //logger.debug("Dropped: {} -> {}", toDrop, rem);
     }
 
     private void addToActiveView(Host newNode) {
@@ -379,7 +379,7 @@ public class HyParView extends GenericProtocol {
                     dropRandomFromActiveView();
                 activeView.add(newNode);
                 triggerNotification(new NeighbourUp(newNode));
-                logger.debug("Added {} to the active view", newNode);
+                //logger.debug("Added {} to the active view", newNode);
             }
         } else {
             pending.put(newNode, PendingConnContext.AVNODE);
