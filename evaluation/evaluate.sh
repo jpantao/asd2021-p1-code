@@ -18,7 +18,6 @@ fi
 nNodes=$(ls $experimentPath | wc -l)
 echo "nodes: $nNodes"
 
-
 # shellcheck disable=SC2126
 echo "Broadcasts sent: $(grep "BroadcastApp" $experimentPath | grep "Sending" | wc -l)"
 # shellcheck disable=SC2004
@@ -54,13 +53,13 @@ function generateChannelMetrics() {
 
 function calculateLatency() {
   # shellcheck disable=SC2207
-  sent=($(echo "$1" | tr ":" "\n" ))
+  sent=($(echo "$1" | tr ":" "\n"))
   # shellcheck disable=SC2207
-  receive=($(echo "$2" | tr ":" "\n" ))
+  receive=($(echo "$2" | tr ":" "\n"))
   # shellcheck disable=SC2004
   h=$(($((10#${receive[0]})) - $((10#${sent[0]}))))
   # shellcheck disable=SC2004
-  m=$(($((10#${receive[1]}))- $((10#${sent[1]}))))
+  m=$(($((10#${receive[1]})) - $((10#${sent[1]}))))
   # shellcheck disable=SC2004
   s=$(($((10#${receive[2]})) - $((10#${sent[2]}))))
   # shellcheck disable=SC2004
@@ -82,13 +81,17 @@ function generateLatencyAndReliability() {
   for ((i = 0; i < ${#sentMids[@]}; i++)); do
     idx=0
     l=0
+    maxLatency=0
     for ((k = 0; k < ${#receivedMids[@]} && l < nNodes; k++)); do
       if [[ "${receivedMids[$k]}" == "${sentMids[$i]}" ]]; then
         l=$((l + 1))
-        idx=$k
+        aux=$(calculateLatency "${sentLatency[$k]}" "${receivedLatency[$idx]}")
+        if [[ $maxLatency < $aux ]]; then
+          maxLatency=$aux
+        fi
       fi
     done
-    echo "$(($l  * 100/ nNodes)),$(calculateLatency "${sentLatency[$i]}" "${receivedLatency[$idx]}")" >>"$dir/reliabilityLatency.csv"
+    echo "$(($l * 100 / nNodes)), $maxLatency" >>"$dir/reliabilityLatency.csv"
   done
 }
 
