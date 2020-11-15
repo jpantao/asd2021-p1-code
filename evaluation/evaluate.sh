@@ -29,14 +29,14 @@ done
 function generateChannelMetrics() {
   echo "Generating ChannelMetrics.csv"
   filename="$dir/ChannelMetrics.csv"
-  echo "MsgOut,BytesOut,MsgIn,BytesIn" >$filename
+  echo "InConnections,,,, InConnections (Old),,,, OutConnections,,,, OutConnections(Old)" >$filename
+  echo "MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn," >>$filename
   declare -a metrics
   i=0
   IFS='
   '
   # shellcheck disable=SC2013
   for x in $(cat $experimentPath | grep -o "ChannelMetrics.*" | cut -f2- -d:); do
-    echo $x
     for k in $(echo "$x" | tr ";" "\n" | tr "{" "\n" | tr -d "}" | cut -f2- -d= | grep "[0-9]" | tr -d ","); do
       i=$((i + 1))
       metrics[i]=$k
@@ -45,56 +45,42 @@ function generateChannelMetrics() {
   unset IFS
   for i in "${!metrics[@]}"; do
     result="${result}${metrics[i]},"
-    if [[ $((i % 4)) == 0 ]]; then
+    if [[ $((i % 16)) == 0 ]]; then
       echo $result >>"$filename"
       result=""
     fi
   done
 }
 
-function calculateLatency() {
+function convertToMillis() {
   # shellcheck disable=SC2207
-  sent=($(echo "$1" | tr ":" "\n"))
-  # shellcheck disable=SC2207
-  receive=($(echo "$2" | tr ":" "\n"))
-  # shellcheck disable=SC2004
-  h=$(($((10#${receive[0]})) - $((10#${sent[0]}))))
-  # shellcheck disable=SC2004
-  m=$(($((10#${receive[1]})) - $((10#${sent[1]}))))
-  # shellcheck disable=SC2004
-  s=$(($((10#${receive[2]})) - $((10#${sent[2]}))))
-  # shellcheck disable=SC2004
-  ms=$(($((10#${receive[3]})) - $((10#${sent[3]}))))
-  # shellcheck disable=SC2004
-  echo $(($(($(($h * 60 + $m)) * 60 + $s)) * 60 + $ms))
+  a=($(echo "$1" | tr ":" "\n" | awk '{x=$0+0;print x}'))
+  echo $(($(($((${a[0]} * 60 + ${a[1]})) * 60 + ${a[2]})) * 60 + ${a[3]}))
 }
 function generateLatencyAndReliability() {
   echo "Generating reliability_latency.csv"
-  echo "Reliability,Latency" >"$dir/reliabilityLatency.csv"
+  echo "Reliability, SentTime, ReceivedTime" >"$dir/reliabilityLatency.csv"
   # shellcheck disable=SC2207
-  sentMids=($(cat $experimentPath | grep "BroadcastApp" | grep "Sending" | tr " " "\n" | grep '.\{36\}'))
+  sentMids=($(cat $experimentPath | grep "BroadcastApp" | grep "Sending" | sort | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
-  sentLatency=($(cat $experimentPath | grep "BroadcastApp" | grep "Sending" | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
+  sentLatency=($(cat $experimentPath | grep "BroadcastApp" | grep "Sending" | sort | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
   # shellcheck disable=SC2207
-  receivedMids=($(cat $experimentPath | grep "BroadcastApp" | grep "Received" | tr " " "\n" | grep '.\{36\}'))
+  receivedMids=($(cat $experimentPath | grep "BroadcastApp" | grep "Received" | sort | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
-  receivedLatency=($(cat $experimentPath | grep "BroadcastApp" | grep "Received" | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
+  receivedLatency=($(cat $experimentPath | grep "BroadcastApp" | grep "Received" | sort | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
   for ((i = 0; i < ${#sentMids[@]}; i++)); do
-    idx=0
     l=0
-    maxLatency=0
+    latencies="$(convertToMillis ${receivedLatency[$i]}),"
     for ((k = 0; k < ${#receivedMids[@]} && l < nNodes; k++)); do
       if [[ "${receivedMids[$k]}" == "${sentMids[$i]}" ]]; then
         l=$((l + 1))
-        aux=$(calculateLatency "${sentLatency[$k]}" "${receivedLatency[$idx]}")
-        if [[ $maxLatency < $aux ]]; then
-          maxLatency=$aux
-        fi
+        latencies="${latencies},$(convertToMillis ${receivedLatency[$k]})"
       fi
     done
-    echo "$(($l * 100 / nNodes)), $maxLatency" >>"$dir/reliabilityLatency.csv"
+
+    echo "$(($l * 100 / nNodes)), $latencies" >>"$dir/reliabilityLatency.csv"
   done
 }
 
-generateChannelMetrics
+#generateChannelMetrics
 generateLatencyAndReliability
