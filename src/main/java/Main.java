@@ -57,8 +57,6 @@ public class Main {
         Host myself = new Host(InetAddress.getByName(props.getProperty("address")),
                 Integer.parseInt(props.getProperty("port")));
 
-        logger.info("Hello, I am {}", myself);
-
         String broadcast_proto = props.getProperty("broadcast_proto");
         String membership_proto = props.getProperty("membership_proto");
 
