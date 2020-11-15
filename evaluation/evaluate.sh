@@ -1,11 +1,11 @@
 #!/bin/bash
 # shellcheck disable=SC2012
-if [[ -z $1 || -z $2 ]]; then
-  echo 'Usage: ./evaluate.sh <experiment> <run>'
+if [[ -z $1 ]]; then
+  echo 'Usage: ./evaluate.sh <experiment>'
   exit 1
 fi
-dir="csvs/$1/run$2"
-experimentPath="./run$2/$1/*.log"
+dir="csvs/$1"
+experimentPath="../logs/$1/*.log"
 if [[ ! -e "csvs" ]]; then
   mkdir "csvs"
 fi
@@ -23,7 +23,7 @@ echo "Broadcasts sent: $(grep "BroadcastApp" $experimentPath | grep "Sending" | 
 # shellcheck disable=SC2004
 for i in $(seq 00 $(($nNodes - 1))); do
   # shellcheck disable=SC2126
-  echo "node$i received: $(grep "BroadcastApp" "../logs/run$2/$1/node$i.log" | grep "Received" | wc -l)"
+  echo "node$i received: $(grep "BroadcastApp" "../logs/$1/node$i.log" | grep "Received" | wc -l)"
 done
 
 function generateChannelMetrics() {
@@ -36,6 +36,7 @@ function generateChannelMetrics() {
   '
   # shellcheck disable=SC2013
   for x in $(cat $experimentPath | grep -o "ChannelMetrics.*" | cut -f2- -d:); do
+    echo $x
     for k in $(echo "$x" | tr ";" "\n" | tr "{" "\n" | tr -d "}" | cut -f2- -d= | grep "[0-9]" | tr -d ","); do
       i=$((i + 1))
       metrics[i]=$k
