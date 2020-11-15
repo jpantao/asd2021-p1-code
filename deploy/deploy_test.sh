@@ -89,7 +89,7 @@ for i in $(seq 01 $(($nNodes - 1))); do
   if [ $((($i + 1) % 10)) -eq 0 ]; then
     echo ""
   fi
-  oarsh -n $node docker exec -d node-${ii} ./start.sh $i $user contact=node-00:10000 "$@"
+  oarsh -n $node docker exec -d node-${ii} ./start_test.sh $i $user contact=node-00:10000 "$@"
   sleep 1
 done
 echo ""
