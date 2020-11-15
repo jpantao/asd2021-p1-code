@@ -133,7 +133,7 @@ public class PlumTreeBroadcast extends GenericProtocol {
         //        + " Lazy push peers: " + lazyPushPeers.toString()
         //        + "\n-------------------------------------------------------------------");
         if (!received.containsKey(msg.getMid())) {
-            triggerNotification(new DeliverNotification(msg.getMid(), from, msg.getContent()));
+            triggerNotification(new DeliverNotification(msg.getMid(), msg.getSender(), msg.getContent()));
             received.put(msg.getMid(), msg);
             if (gossipTimers.containsKey(msg.getMid())) {
                 long timerID = gossipTimers.get(msg.getMid());

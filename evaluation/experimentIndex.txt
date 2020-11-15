@@ -1,9 +1,5 @@
 payload={big,small}={1000,10000}
 broadcast={fast,slow}={2000,10000}
-20
-2000
-3000
-10000
 [1-8] - cyclon normal
 	[1-4] - plumtree 
 		(1) - fast,small
