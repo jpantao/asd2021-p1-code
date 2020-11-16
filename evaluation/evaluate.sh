@@ -7,10 +7,10 @@ fi
 dir="csvs/$1"
 experimentPath="../logs/$1/*.log"
 if [[ ! -e "csvs" ]]; then
-  mkdir "csvs"
+  #mkdir "csvs"
 fi
 if [[ ! -e "csvs/$1" ]]; then
-  mkdir "csvs/$1"
+  #mkdir "csvs/$1"
 fi
 if [[ ! -e $dir ]]; then
   mkdir $dir
@@ -32,15 +32,18 @@ function generateChannelMetrics() {
   echo "MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn" >>$filename
   declare -a metrics
   i=0
+  l=0
   IFS='
   '
   # shellcheck disable=SC2013
   # shellcheck disable=SC2207
   aux=($(cat $experimentPath | grep -o "ChannelMetrics.*" | cut -f2- -d:))
-  for ((k = 0; k < ${#aux[@]} && l < nNodes; k += 1)); do
-    for j in $(echo "${aux[$k]}" | tr ";" "\n" | tr "{" "\n" | tr -d "}" | cut -f2- -d= | grep "[0-9]" | tr -d ","); do
-      i=$((i + 1))
-      metrics[i]=$j
+  for ((k = 0; k < ${#aux[@]}; k += 1)); do
+    echo "${aux[$k]}"
+    for j in $(echo "${aux[$k]}" | tr "=" "\n" | grep "[0-9]" | tr -d "[a-zA-Z]"); do
+      echo "j: $j"
+      l=$((l + 1))
+      metrics[l]=$j
     done
   done
   unset IFS
@@ -83,4 +86,4 @@ function generateLatency() {
 }
 
 generateChannelMetrics
-#generateLatency
+generateLatency
