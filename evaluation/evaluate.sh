@@ -28,8 +28,8 @@ done
 function generateChannelMetrics() {
   echo "Generating ChannelMetrics.csv"
   filename="$dir/ChannelMetrics.csv"
-  echo "InConnections,,,, InConnections (Old),,,, OutConnections,,,, OutConnections(Old)" >$filename
-  echo "MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn," >>$filename
+  echo "InConnections,,,, OutConnections,,," >$filename
+  echo "MsgOut,BytesOut,MsgIn,BytesIn,MsgOut,BytesOut,MsgIn,BytesIn" >>$filename
   declare -a metrics
   i=0
   IFS='
@@ -37,7 +37,7 @@ function generateChannelMetrics() {
   # shellcheck disable=SC2013
   # shellcheck disable=SC2207
   aux=($(cat $experimentPath | grep -o "ChannelMetrics.*" | cut -f2- -d:))
-  for ((k = 0; k < ${#aux[@]} && l < nNodes; k += nNodes/2)); do
+  for ((k = 0; k < ${#aux[@]} && l < nNodes; k += 1)); do
     for j in $(echo "${aux[$k]}" | tr ";" "\n" | tr "{" "\n" | tr -d "}" | cut -f2- -d= | grep "[0-9]" | tr -d ","); do
       i=$((i + 1))
       metrics[i]=$j
@@ -46,7 +46,7 @@ function generateChannelMetrics() {
   unset IFS
   for i in "${!metrics[@]}"; do
     result="${result}${metrics[i]},"
-    if [[ $((i % 16)) == 0 ]]; then
+    if [[ $((i % 8)) == 0 ]]; then
       echo $result >>"$filename"
       result=""
     fi

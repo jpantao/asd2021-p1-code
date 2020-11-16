@@ -444,9 +444,9 @@ public class Cyclon extends GenericProtocol {
     private void uponChannelMetrics(ChannelMetrics event, int channelId) {
         StringBuilder sb = new StringBuilder("ChannelMetrics:");
         sb.append(sumChannelMetrics(event.getInConnections()));
-        sb.append(sumChannelMetrics(event.getOldInConnections()));
+        //sb.append(sumChannelMetrics(event.getOldInConnections()));
         sb.append(sumChannelMetrics(event.getOutConnections()));
-        sb.append(sumChannelMetrics(event.getOldOutConnections()));
+        //sb.append(sumChannelMetrics(event.getOldOutConnections()));
         logger.info(sb);
     }
 
