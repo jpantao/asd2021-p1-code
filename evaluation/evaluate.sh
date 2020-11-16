@@ -83,4 +83,4 @@ function generateLatency() {
 }
 
 generateChannelMetrics
-generateLatency
+#generateLatency

@@ -33,9 +33,9 @@ echo ""
 echo "Done... All processes finished."
 echo ""
 # shellcheck disable=SC2126
-echo "Broadcasts sent: $(grep "BroadcastApp" logs/*.log | grep "Sending" | wc -l)"
+echo "Broadcasts sent: $(grep "BroadcastApp" test/logs/*.log | grep "Sending" | wc -l)"
 # shellcheck disable=SC2004
 for i in $(seq 00 $(($nNodes - 1))); do
   # shellcheck disable=SC2126
-  echo "node$i received: $(grep "BroadcastApp" logs/node"$i".log | grep "Received" | wc -l)"
+  echo "node$i received: $(grep "BroadcastApp" test/logs/node"$i".log | grep "Received" | wc -l)"
 done
