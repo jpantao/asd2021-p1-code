@@ -25,7 +25,7 @@ echo "Executing java"
 printf "%.2d.. " 0
 
 node=$(nextnode 0)
-oarsh -n $node docker exec -d node-00 ./start.sh $experiment 0 $user "$@"
+oarsh -n $node docker exec -d node-00 ./start.sh $experiment 0 $user $run "$@"
 
 sleep 1
 
