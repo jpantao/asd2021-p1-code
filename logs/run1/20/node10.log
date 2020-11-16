@@ -1,0 +1,37 @@
+[32mI[16:55:45:801] [main]BroadcastApp:[m Waiting...
+[32mI[16:56:25:797] [110-HyParView]HyParView:[m ChannelMetrics:msgOut=0 bytesOut=0 msgIn=1 bytesIn=13 msgOut=3 bytesOut=39 msgIn=0 bytesIn=0 
+[32mI[16:57:05:792] [110-HyParView]HyParView:[m ChannelMetrics:msgOut=0 bytesOut=0 msgIn=1 bytesIn=13 msgOut=3 bytesOut=39 msgIn=0 bytesIn=0 
+[32mI[16:57:05:805] [300-BroadcastApp]BroadcastApp:[m Starting
+[32mI[16:57:05:821] [300-BroadcastApp]BroadcastApp:[m Sending 1cfb3365-d653-47a2-9dbe-ae1bf8e03c17 (10000)
+[32mI[16:57:05:822] [300-BroadcastApp]BroadcastApp:[m Received 1cfb3365-d653-47a2-9dbe-ae1bf8e03c17 (10000) from 172.10.10.10:10000
+[32mI[16:57:15:810] [300-BroadcastApp]BroadcastApp:[m Sending 12840db0-d5af-4a75-aac9-0b27c860d73f (10000)
+[32mI[16:57:15:811] [300-BroadcastApp]BroadcastApp:[m Received 12840db0-d5af-4a75-aac9-0b27c860d73f (10000) from 172.10.10.10:10000
+[32mI[16:57:25:810] [300-BroadcastApp]BroadcastApp:[m Sending 8b898fac-12ab-4b2d-bed8-2a3e810d810e (10000)
+[32mI[16:57:25:811] [300-BroadcastApp]BroadcastApp:[m Received 8b898fac-12ab-4b2d-bed8-2a3e810d810e (10000) from 172.10.10.10:10000
+[32mI[16:57:35:810] [300-BroadcastApp]BroadcastApp:[m Sending 3f4349e6-d2a0-4359-ae02-86e34f33cd7b (10000)
+[32mI[16:57:35:811] [300-BroadcastApp]BroadcastApp:[m Received 3f4349e6-d2a0-4359-ae02-86e34f33cd7b (10000) from 172.10.10.10:10000
+[32mI[16:57:45:792] [110-HyParView]HyParView:[m ChannelMetrics:msgOut=0 bytesOut=0 msgIn=1 bytesIn=13 msgOut=3 bytesOut=39 msgIn=0 bytesIn=0 
+[32mI[16:57:45:810] [300-BroadcastApp]BroadcastApp:[m Sending 313ad11c-240f-4d43-85c5-e28b9bf5652f (10000)
+[32mI[16:57:45:811] [300-BroadcastApp]BroadcastApp:[m Received 313ad11c-240f-4d43-85c5-e28b9bf5652f (10000) from 172.10.10.10:10000
+[32mI[16:57:55:811] [300-BroadcastApp]BroadcastApp:[m Sending 0dd75dff-0dee-485f-89de-3a1da0961bdb (10000)
+[32mI[16:57:55:812] [300-BroadcastApp]BroadcastApp:[m Received 0dd75dff-0dee-485f-89de-3a1da0961bdb (10000) from 172.10.10.10:10000
+[32mI[16:58:05:811] [300-BroadcastApp]BroadcastApp:[m Sending 79336d75-4861-482a-aee7-091cfcca4d80 (10000)
+[32mI[16:58:05:812] [300-BroadcastApp]BroadcastApp:[m Received 79336d75-4861-482a-aee7-091cfcca4d80 (10000) from 172.10.10.10:10000
+[32mI[16:58:15:810] [300-BroadcastApp]BroadcastApp:[m Sending 9e570e0c-31a4-4e76-8af2-b878381ecb11 (10000)
+[32mI[16:58:15:811] [300-BroadcastApp]BroadcastApp:[m Received 9e570e0c-31a4-4e76-8af2-b878381ecb11 (10000) from 172.10.10.10:10000
+[32mI[16:58:25:791] [110-HyParView]HyParView:[m ChannelMetrics:msgOut=0 bytesOut=0 msgIn=1 bytesIn=13 msgOut=3 bytesOut=39 msgIn=0 bytesIn=0 
+[32mI[16:58:25:810] [300-BroadcastApp]BroadcastApp:[m Sending 468783b4-c48a-4e0b-b05d-5e355a9a27e8 (10000)
+[32mI[16:58:25:811] [300-BroadcastApp]BroadcastApp:[m Received 468783b4-c48a-4e0b-b05d-5e355a9a27e8 (10000) from 172.10.10.10:10000
+[32mI[16:58:35:810] [300-BroadcastApp]BroadcastApp:[m Sending 43124b69-d162-41d7-81e7-175148ce7aa2 (10000)
+[32mI[16:58:35:811] [300-BroadcastApp]BroadcastApp:[m Received 43124b69-d162-41d7-81e7-175148ce7aa2 (10000) from 172.10.10.10:10000
+[32mI[16:58:45:810] [300-BroadcastApp]BroadcastApp:[m Sending 7bf6f640-4aa0-44f8-84a4-5098251f1fb9 (10000)
+[32mI[16:58:45:811] [300-BroadcastApp]BroadcastApp:[m Received 7bf6f640-4aa0-44f8-84a4-5098251f1fb9 (10000) from 172.10.10.10:10000
+[32mI[16:58:55:810] [300-BroadcastApp]BroadcastApp:[m Sending 26743992-8d21-40c4-abac-3f10072d2ff1 (10000)
+[32mI[16:58:55:811] [300-BroadcastApp]BroadcastApp:[m Received 26743992-8d21-40c4-abac-3f10072d2ff1 (10000) from 172.10.10.10:10000
+[32mI[16:59:05:792] [110-HyParView]HyParView:[m ChannelMetrics:msgOut=0 bytesOut=0 msgIn=1 bytesIn=13 msgOut=3 bytesOut=39 msgIn=0 bytesIn=0 
+[32mI[16:59:05:807] [300-BroadcastApp]BroadcastApp:[m Stopping broadcasts
+[32mI[16:59:05:809] [300-BroadcastApp]BroadcastApp:[m Sending 9362ec36-4796-434a-97f9-4027373e49b5 (10000)
+[32mI[16:59:05:810] [300-BroadcastApp]BroadcastApp:[m Received 9362ec36-4796-434a-97f9-4027373e49b5 (10000) from 172.10.10.10:10000
+[32mI[16:59:45:792] [110-HyParView]HyParView:[m ChannelMetrics:msgOut=0 bytesOut=0 msgIn=1 bytesIn=13 msgOut=3 bytesOut=39 msgIn=0 bytesIn=0 
+[32mI[17:00:05:809] [300-BroadcastApp]BroadcastApp:[m Exiting...
+[32mI[17:00:05:811] [Thread-1]Main:[m Goodbye
