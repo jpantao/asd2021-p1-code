@@ -1,6 +1,7 @@
+run=$3
 nNodes=$2
 experiment=$1
-shift 2
+shift 3
 
 n_nodes=$(uniq $OAR_FILE_NODES | wc -l)
 
@@ -35,7 +36,7 @@ for i in $(seq 01 $(($nNodes - 1))); do
   if [ $((($i + 1) % 10)) -eq 0 ]; then
     echo ""
   fi
-  oarsh -n $node docker exec -d node-${ii} ./start.sh $experiment $i $user contact=node-00:10000 "$@"
+  oarsh -n $node docker exec -d node-${ii} ./start.sh $experiment $i $user $run contact=node-00:10000 "$@"
   sleep 0.5
 done
 
