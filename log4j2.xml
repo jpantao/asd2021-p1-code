@@ -7,7 +7,7 @@
         </Console>
 
         <!-- UNCOMMENT TO WRITE LOGS TO A FILE-->
-        <File name="MyFile" fileName="test/${sys:logFilename}.log" append="false" immediateFlush="true">
+        <File name="MyFile" fileName="${sys:logFilename}.log" append="false" immediateFlush="true">
             <PatternLayout pattern="%highlight{%level{length=1}[%d{HH:mm:ss:SSS}] [%t]%logger{0}:} %msg%n"/>
         </File>
     </Appenders>
