@@ -136,7 +136,7 @@ public class Cyclon extends GenericProtocol {
         int nNeighbours = neighbours.keySet().size();
         Host newHost = joinRequest.getNewHost();
         if (nNeighbours > 0) {
-            if (joinRequest.getTtl() == L) {
+            if (joinRequest.getTtl() == L - 1) {
                 Map<Host, Integer> rndSubset = getRandomSubset(neighbours, N);
                 //logger.debug("Random subset: {}", rndSubset);
                 for (Entry<Host, Integer> rndPeer : rndSubset.entrySet())
