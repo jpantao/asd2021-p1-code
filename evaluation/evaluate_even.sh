@@ -67,9 +67,11 @@ function generateLatency() {
   receivedMids=($(cat $experimentPath | grep "BroadcastApp" | grep "Received" | sort | tr " " "\n" | grep '.\{36\}'))
   # shellcheck disable=SC2207
   receivedLatency=($(cat $experimentPath | grep "BroadcastApp" | grep "Received" | sort | grep -o -P 'I.{0,13}' | grep : | tr -d "I["))
+
   for ((i = 0; i < ${#sentMids[@]}; i += 5)); do
     l=0
-    latencies_="$(convertToMillis ${receivedLatency[$i]})"
+    latencies_="$(convertToMillis ${sentLatency[$i]})"
+
     for ((k = 0; k < ${#receivedMids[@]} && l < nNodes; k++)); do
       if [[ "${receivedMids[$k]}" == "${sentMids[$i]}" ]]; then
         l=$((l + 1))
@@ -80,5 +82,5 @@ function generateLatency() {
   done
 }
 
-generateChannelMetrics
+#generateChannelMetrics
 generateLatency
